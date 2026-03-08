@@ -9,6 +9,8 @@
     "dev": "turbo dev --filter=web",
     "build": "turbo build --filter=web",
     "test": "bun test",
+    "bump": "cd packages/ol && bun bump",
+    "patch": "cd packages/ol && bun patch",
     "lint": "bun run --cwd apps/web lint",
     "lint:fix": "bunx biome lint --write .",
     "format": "bunx biome format --write .",

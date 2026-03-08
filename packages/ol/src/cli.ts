@@ -2,9 +2,8 @@
 
 /* global Bun */
 
-import { createWriteStream, readFileSync } from "node:fs";
+import { createWriteStream } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
 import process from "node:process";
 import { finished } from "node:stream/promises";
 import {
@@ -24,18 +23,77 @@ if (process.platform === "win32") {
 }
 
 const supervisionScript = `
-pid_file="\${TMPDIR:-/tmp}/ol-child.$$"
-cleanup() {
-  if [ -f "$pid_file" ]; then
-    child="$(cat "$pid_file")"
-    kill -TERM -"$child" 2>/dev/null || true
-    rm -f "$pid_file"
-  fi
-}
-python3 -c 'import os, sys; open(sys.argv[1], "w").write(str(os.getpid())); os.setpgid(0, 0); os.execvp(sys.argv[2], sys.argv[2:])' "$pid_file" "$@"
-status=$?
-cleanup
-exit "$status"
+import os
+import signal
+import subprocess
+import sys
+import time
+
+tracked = set()
+child = subprocess.Popen(sys.argv[1:], stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr)
+
+def snapshot_descendants():
+    if child.poll() is not None:
+        return
+
+    output = subprocess.check_output(["ps", "-axo", "pid=,ppid="], text=True)
+    children = {}
+    for line in output.splitlines():
+        pid_str, ppid_str = line.split()
+        children.setdefault(int(ppid_str), []).append(int(pid_str))
+
+    stack = [child.pid]
+    while stack:
+        current = stack.pop()
+        for descendant in children.get(current, []):
+          if descendant not in tracked:
+              tracked.add(descendant)
+              stack.append(descendant)
+
+def living_pids():
+    pids = [child.pid, *tracked]
+    living = []
+    for pid in pids:
+        try:
+            os.kill(pid, 0)
+            living.append(pid)
+        except ProcessLookupError:
+            pass
+    return living
+
+def terminate_tracked(signum):
+    snapshot_descendants()
+    for pid in reversed(living_pids()):
+        try:
+            os.kill(pid, signum)
+        except ProcessLookupError:
+            pass
+
+    deadline = time.time() + 1
+    while time.time() < deadline:
+        if not living_pids():
+            return
+        time.sleep(0.05)
+
+    for pid in reversed(living_pids()):
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+def handle_signal(signum, _frame):
+    terminate_tracked(signum)
+    raise SystemExit(128 + signum)
+
+for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    signal.signal(signum, handle_signal)
+
+while child.poll() is None:
+    snapshot_descendants()
+    time.sleep(0.05)
+
+terminate_tracked(signal.SIGTERM)
+raise SystemExit(child.returncode)
 `;
 
 try {
@@ -88,8 +146,10 @@ async function main() {
   });
 
   const proc = Bun.spawn(
-    ["sh", "-c", supervisionScript, "ol-supervisor", ...options.command],
-    { terminal }
+    ["python3", "-c", supervisionScript, ...options.command],
+    {
+      terminal,
+    }
   );
   const teardown = setupTerminalHandlers(proc, terminal);
 
@@ -131,7 +191,9 @@ function setupTerminalHandlers(proc: Bun.Subprocess, terminal: Bun.Terminal) {
   let rawModeEnabled = false;
   const onInput = (data: Buffer) => {
     if (hasInterruptByte(data)) {
-      signalWrappedCommand(proc, "SIGINT");
+      if (!proc.killed) {
+        proc.kill("SIGINT");
+      }
       return;
     }
 
@@ -142,7 +204,9 @@ function setupTerminalHandlers(proc: Bun.Subprocess, terminal: Bun.Terminal) {
   };
   const signalHandlers = ["SIGINT", "SIGTERM", "SIGHUP"].map((signal) => {
     const handler = () => {
-      signalWrappedCommand(proc, signal);
+      if (!proc.killed) {
+        proc.kill(signal);
+      }
     };
     process.on(signal, handler);
     return [signal, handler] as const;
@@ -170,38 +234,12 @@ function setupTerminalHandlers(proc: Bun.Subprocess, terminal: Bun.Terminal) {
       process.stdin.setRawMode?.(false);
     }
 
-    signalWrappedCommand(proc, "SIGTERM");
+    if (!proc.killed && proc.exitCode === null) {
+      proc.kill("SIGTERM");
+    }
 
     terminal.close();
   };
-}
-
-function signalWrappedCommand(
-  proc: Bun.Subprocess,
-  signal: "SIGINT" | "SIGTERM" | "SIGHUP"
-) {
-  if (proc.exitCode !== null) {
-    return;
-  }
-
-  try {
-    const childPid = Number(
-      readFileSync(getSupervisorPidPath(proc.pid), "utf8").trim()
-    );
-    if (childPid > 0) {
-      process.kill(-childPid, signal);
-    }
-  } catch {
-    // The supervised child group is best-effort; fall back to the wrapper proc.
-  }
-
-  if (!proc.killed) {
-    proc.kill(signal);
-  }
-}
-
-function getSupervisorPidPath(pid: number) {
-  return join(process.env.TMPDIR || "/tmp", `ol-child.${pid}`);
 }
 
 async function closeStreams(

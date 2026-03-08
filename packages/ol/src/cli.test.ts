@@ -197,9 +197,17 @@ test("cli reaps surviving descendants before exiting", async () => {
   await Bun.write(pidFile, "");
 
   const proc = spawnCli([
-    "sh",
-    "-lc",
-    `sh -lc 'printf %s $$ > "${pidFile}"; while :; do sleep 1; done' & sleep 0.2; exit 0`,
+    "python3",
+    "-c",
+    [
+      "import os, time",
+      "pid = os.fork()",
+      "if pid == 0:",
+      "    os.setsid()",
+      `    open(${JSON.stringify(pidFile)}, "w").write(str(os.getpid()))`,
+      "    while True: time.sleep(1)",
+      "time.sleep(0.2)",
+    ].join("\n"),
   ]);
   const childPid = Number(
     await waitFor(
