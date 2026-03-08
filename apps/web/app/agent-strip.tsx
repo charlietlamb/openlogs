@@ -1,6 +1,12 @@
 import Image from "next/image";
 
-const AGENTS = [
+interface Agent {
+  href: string;
+  label: string;
+  src: string;
+}
+
+const AGENTS: Agent[] = [
   { href: "https://ampcode.com/", label: "AMP", src: "/agents/amp.svg" },
   {
     href: "https://antigravity.google/",
@@ -63,7 +69,7 @@ const AGENTS = [
     label: "Windsurf",
     src: "/agents/windsurf.svg",
   },
-] as const;
+];
 
 export function AgentStrip() {
   return (

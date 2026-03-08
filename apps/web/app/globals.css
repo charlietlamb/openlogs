@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./theme.css";
 @source "../**/*.{ts,tsx}";
 
 /* Safelist for log pane — classes constructed dynamically in lookup objects
@@ -11,91 +12,93 @@
 
 @custom-variant dark (&:is(.dark *));
 
-:root {
-  --background: oklch(0.98 0 0);
-  --foreground: oklch(0.12 0 0);
-  --card: oklch(0.96 0 0);
-  --card-foreground: oklch(0.12 0 0);
-  --popover: oklch(0.98 0 0);
-  --popover-foreground: oklch(0.12 0 0);
-  --primary: oklch(0.12 0 0);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.93 0 0);
-  --secondary-foreground: oklch(0.12 0 0);
-  --muted: oklch(0.93 0 0);
-  --muted-foreground: oklch(0.5 0 0);
-  --accent: oklch(0.88 0 0);
-  --accent-foreground: oklch(0.12 0 0);
-  --destructive: oklch(0.55 0.22 27);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.82 0 0);
-  --input: oklch(0.9 0 0);
-  --ring: oklch(0.12 0 0);
-  --radius: 0rem;
-
-  /* Log pane — light mode */
-  --log-bg: var(--background);
-  --log-fg: oklch(0.12 0 0);
-  --log-row-border: oklch(0.12 0 0 / 0.06);
-  --log-ts: oklch(0.12 0 0 / 0.35);
-  --log-source: oklch(0.12 0 0 / 0.55);
-  --log-msg: oklch(0.12 0 0 / 0.5);
-  --log-level-error: oklch(0.5 0.2 27);
-  --log-level-warn: oklch(0.55 0.15 60);
-  --log-level-debug: oklch(0.45 0.12 230);
-  --log-level-trace: oklch(0.12 0 0 / 0.35);
-  --log-level-info: oklch(0.4 0.12 145);
-  --log-row-error-bg: transparent;
-  --log-row-warn-bg: transparent;
-  --log-row-debug-bg: transparent;
-  --log-row-trace-bg: transparent;
-  --log-row-info-bg: transparent;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: light;
+    @apply bg-background text-foreground;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 
-.dark {
-  --background: oklch(0.1448 0 0);
-  --foreground: oklch(0.9851 0 0);
-  --card: oklch(0.2134 0 0);
-  --card-foreground: oklch(0.9851 0 0);
-  --popover: oklch(0.2686 0 0);
-  --popover-foreground: oklch(0.9851 0 0);
-  --primary: oklch(0.5555 0 0);
-  --primary-foreground: oklch(0.9851 0 0);
-  --secondary: oklch(0.2686 0 0);
-  --secondary-foreground: oklch(0.9851 0 0);
-  --muted: oklch(0.2686 0 0);
-  --muted-foreground: oklch(0.709 0 0);
-  --accent: oklch(0.3715 0 0);
-  --accent-foreground: oklch(0.9851 0 0);
-  --destructive: oklch(0.7022 0.1892 22.2279);
-  --destructive-foreground: oklch(0.2686 0 0);
-  --border: oklch(0.3407 0 0);
-  --input: oklch(0.4386 0 0);
-  --ring: oklch(0.5555 0 0);
-  --radius: 0rem;
+@layer components {
+  .hatch-bg {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent 0,
+      transparent 4px,
+      color-mix(in oklch, var(--foreground) 6%, transparent) 4px,
+      color-mix(in oklch, var(--foreground) 6%, transparent) 5px
+    );
+  }
 
-  /* Log pane — dark mode */
-  --log-bg: oklch(0 0 0);
-  --log-fg: oklch(1 0 0);
-  --log-row-border: oklch(1 0 0 / 0.04);
-  --log-ts: oklch(1 0 0 / 0.38);
-  --log-source: oklch(1 0 0 / 0.62);
-  --log-msg: oklch(1 0 0 / 0.58);
-  --log-level-error: #ff6b6b;
-  --log-level-warn: #fbbf24;
-  --log-level-debug: #7dd3fc;
-  --log-level-trace: oklch(1 0 0 / 0.45);
-  --log-level-info: #7cffb2;
-  --log-row-error-border: oklch(0.7 0.2 27 / 0.25);
-  --log-row-error-bg: oklch(0.7 0.2 27 / 0.08);
-  --log-row-warn-border: oklch(0.75 0.15 60 / 0.2);
-  --log-row-warn-bg: oklch(0.75 0.15 60 / 0.07);
-  --log-row-debug-border: oklch(0.72 0.12 230 / 0.18);
-  --log-row-debug-bg: oklch(0.72 0.12 230 / 0.07);
-  --log-row-trace-border: oklch(1 0 0 / 0.06);
-  --log-row-trace-bg: transparent;
-  --log-row-info-border: oklch(1 0 0 / 0.07);
-  --log-row-info-bg: transparent;
+  .terminal-grid {
+    background-image:
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--foreground) 5%, transparent) 0,
+        color-mix(in oklch, var(--foreground) 2%, transparent) 1px,
+        transparent 1px,
+        transparent 36px
+      ),
+      linear-gradient(
+        90deg,
+        color-mix(in oklch, var(--foreground) 5%, transparent) 0,
+        color-mix(in oklch, var(--foreground) 2%, transparent) 1px,
+        transparent 1px,
+        transparent 36px
+      );
+    background-size:
+      100% 36px,
+      36px 100%;
+  }
+
+  .terminal-scanlines {
+    background-image: linear-gradient(
+      180deg,
+      transparent 0,
+      color-mix(in oklch, var(--foreground) 4%, transparent) 50%,
+      transparent 100%
+    );
+    background-size: 100% 6px;
+    animation: terminal-scanlines 12s linear infinite;
+  }
+
+  .terminal-icon-flicker {
+    animation: terminal-icon-flicker 7.5s infinite;
+  }
+
+  .agent-marquee {
+    animation: agent-marquee 24s linear infinite;
+    will-change: transform;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-terminal-stream,
+  .animate-terminal-stream-reverse,
+  .terminal-scanlines,
+  .terminal-icon-flicker,
+  .agent-marquee {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-terminal-stream,
+  .animate-terminal-stream-reverse,
+  .terminal-scanlines,
+  .terminal-icon-flicker,
+  .agent-marquee {
+    animation: none;
+  }
 }
 
 @keyframes terminal-stream {
@@ -180,116 +183,5 @@
   }
   to {
     transform: translateX(-50%);
-  }
-}
-
-@theme inline {
-  --animate-terminal-stream: terminal-stream 28s linear infinite;
-  --animate-terminal-stream-reverse: terminal-stream-reverse 38s linear infinite;
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  html {
-    color-scheme: light;
-    @apply bg-background text-foreground;
-  }
-  html.dark {
-    color-scheme: dark;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
-@layer components {
-  .hatch-bg {
-    background-image: repeating-linear-gradient(
-      -45deg,
-      transparent 0,
-      transparent 4px,
-      color-mix(in oklch, var(--foreground) 6%, transparent) 4px,
-      color-mix(in oklch, var(--foreground) 6%, transparent) 5px
-    );
-  }
-
-  .terminal-grid {
-    background-image:
-      linear-gradient(
-        180deg,
-        color-mix(in oklch, var(--foreground) 5%, transparent) 0,
-        color-mix(in oklch, var(--foreground) 2%, transparent) 1px,
-        transparent 1px,
-        transparent 36px
-      ),
-      linear-gradient(
-        90deg,
-        color-mix(in oklch, var(--foreground) 5%, transparent) 0,
-        color-mix(in oklch, var(--foreground) 2%, transparent) 1px,
-        transparent 1px,
-        transparent 36px
-      );
-    background-size:
-      100% 36px,
-      36px 100%;
-  }
-
-  .terminal-scanlines {
-    background-image: linear-gradient(
-      180deg,
-      transparent 0,
-      color-mix(in oklch, var(--foreground) 4%, transparent) 50%,
-      transparent 100%
-    );
-    background-size: 100% 6px;
-    animation: terminal-scanlines 12s linear infinite;
-  }
-
-  .terminal-icon-flicker {
-    animation: terminal-icon-flicker 7.5s infinite;
-  }
-
-  .agent-marquee {
-    animation: agent-marquee 24s linear infinite;
-    will-change: transform;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-terminal-stream,
-  .animate-terminal-stream-reverse,
-  .terminal-scanlines,
-  .terminal-icon-flicker,
-  .agent-marquee {
-    animation: none;
   }
 }

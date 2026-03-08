@@ -1,17 +1,11 @@
 "use client";
 
 import { CheckIcon, CopyIcon } from "@phosphor-icons/react";
-import { useState } from "react";
 import { cn } from "@/lib/cn";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 
 export function CopyableCommand({ command }: { command: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function handleCopy() {
-    await navigator.clipboard.writeText(command);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
-  }
+  const { copied, copy } = useCopyToClipboard();
 
   return (
     <div className="flex items-center justify-between border border-border px-4 py-3 font-mono text-sm">
@@ -21,12 +15,12 @@ export function CopyableCommand({ command }: { command: string }) {
       <button
         aria-label={`Copy ${command}`}
         className={cn(
-          "ml-3 inline-flex size-6 shrink-0 items-center justify-center outline-none",
+          "ml-3 inline-flex size-6 shrink-0 items-center justify-center outline outline-2 outline-transparent outline-offset-2 transition-[outline-color,color] focus-visible:outline-foreground",
           copied
             ? "text-foreground"
-            : "text-muted-foreground transition-colors hover:text-foreground"
+            : "text-muted-foreground hover:text-foreground"
         )}
-        onClick={handleCopy}
+        onClick={() => copy(command)}
         type="button"
       >
         {copied ? (

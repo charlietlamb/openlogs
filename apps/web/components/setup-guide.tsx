@@ -1,13 +1,21 @@
 import { StarIcon } from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/cn";
+import { GITHUB_URL, INSTALL_COMMAND } from "@/lib/constants";
+import { SKILL_CONTENT } from "@/lib/skill-content";
 import { CopyableCommand } from "./copyable-command";
 import { type Flag, FlagsAccordion } from "./flags-accordion";
+import { SkillAccordion } from "./skill-accordion";
+
+// Shared eyebrow label style — also used in nav-header
+export const EYEBROW_CLS =
+  "font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground";
 
 interface Step {
   command: string;
   description?: string;
   flags?: Flag[];
   number: string;
+  skillContent?: string;
   title: string;
 }
 
@@ -15,7 +23,7 @@ const STEPS: Step[] = [
   {
     number: "01",
     title: "Install the CLI",
-    command: "npm i -g openlogs",
+    command: INSTALL_COMMAND,
   },
   {
     number: "02",
@@ -77,18 +85,22 @@ const STEPS: Step[] = [
     description:
       "The OpenLogs skill teaches your agent when and how to check logs automatically — no manual prompting needed.",
     command: "npx skills add https://github.com/charlietlamb/openlogs",
+    skillContent: SKILL_CONTENT,
   },
 ];
 
-function SetupStep({ number, title, description, command, flags }: Step) {
+function SetupStep({
+  number,
+  title,
+  description,
+  command,
+  flags,
+  skillContent,
+}: Step) {
   return (
     <div className="border-border border-b px-6 py-7">
-      <p className="mb-1 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]">
-        {number}
-      </p>
-      <h3
-        className={cn("font-semibold text-sm", description ? "mb-2" : "mb-4")}
-      >
+      <p className={cn(EYEBROW_CLS, "mb-1")}>{number}</p>
+      <h3 className={cn("font text-sm", description ? "mb-2" : "mb-4")}>
         {title}
       </h3>
       {description && (
@@ -98,33 +110,29 @@ function SetupStep({ number, title, description, command, flags }: Step) {
       )}
       <CopyableCommand command={command} />
       {flags && <FlagsAccordion flags={flags} />}
+      {skillContent && <SkillAccordion content={skillContent} />}
     </div>
   );
 }
 
 export function SetupGuide() {
   return (
-    <div className="flex w-full flex-col border-border border-t lg:w-2/5 lg:shrink-0 lg:border-t-0 lg:border-l">
+    <div className="flex w-full flex-col border-border border-t lg:w-2/5 lg:shrink-0 lg:overflow-y-auto lg:border-t-0 lg:border-l">
       <div className="border-border border-b px-6 py-3">
-        <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.34em]">
-          Readme
-        </p>
+        <p className={cn(EYEBROW_CLS, "tracking-[0.34em]")}>Readme</p>
       </div>
       {STEPS.map((step) => (
         <SetupStep key={step.number} {...step} />
       ))}
-      {/* Star CTA */}
       <div className="flex flex-1 flex-col justify-end px-6 py-7">
-        <p className="mb-1 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]">
-          05
-        </p>
-        <h3 className="mb-2 font-semibold text-sm">Star us on GitHub</h3>
+        <p className={cn(EYEBROW_CLS, "mb-1")}>05</p>
+        <h3 className="mb-2 text-sm">Star on GitHub</h3>
         <p className="mb-4 text-muted-foreground text-xs leading-5">
           If OpenLogs is useful to you, a star helps others find it.
         </p>
         <a
           className="inline-flex h-9 w-fit items-center gap-2 border border-border px-4 font-mono text-muted-foreground text-xs tracking-wide transition-colors hover:border-foreground hover:text-foreground"
-          href="https://github.com/charlietlamb/openlogs"
+          href={GITHUB_URL}
           rel="noopener noreferrer"
           target="_blank"
         >
