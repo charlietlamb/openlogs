@@ -3,6 +3,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
+import process from "node:process";
 
 const cliPath = join(process.cwd(), "packages/ol/src/cli.ts");
 const outDir = join(process.cwd(), ".tmp-openlogs");
@@ -19,6 +20,34 @@ function spawnCli(command: string[]) {
     stdout: "pipe",
     stderr: "pipe",
   });
+}
+
+async function waitFor<T>(
+  load: () => Promise<T> | T,
+  ready: (value: T) => boolean,
+  timeoutMs = 2000
+) {
+  const start = Date.now();
+  let value = await load();
+
+  while (!ready(value)) {
+    if (Date.now() - start >= timeoutMs) {
+      throw new Error("Timed out waiting for test condition");
+    }
+    await Bun.sleep(50);
+    value = await load();
+  }
+
+  return value;
+}
+
+function pidExists(pid: number) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 test("cli writes raw and cleaned log files", async () => {
@@ -134,4 +163,54 @@ test("cli tail can read the latest raw log", async () => {
 
   expect(await proc.exited).toBe(0);
   expect(await new Response(proc.stdout).text()).toBe("raw-b\n");
+});
+
+test("cli terminates the wrapped command when the wrapper is terminated", async () => {
+  const pidFile = join(outDir, "child.pid");
+  await mkdir(outDir, { recursive: true });
+  await Bun.write(pidFile, "");
+
+  const childCommand =
+    `printf %s $$ > "${pidFile}"; ` +
+    `trap "exit 0" TERM INT HUP; ` +
+    "while :; do sleep 1; done";
+  const proc = spawnCli(["sh", "-lc", childCommand]);
+  const childPid = Number(
+    await waitFor(
+      async () => (await Bun.file(pidFile).text()).trim(),
+      (value) => value.length > 0
+    )
+  );
+
+  proc.kill("SIGTERM");
+
+  expect(await proc.exited).toBe(143);
+  await waitFor(
+    () => pidExists(childPid),
+    (alive) => !alive
+  );
+});
+
+test("cli reaps surviving descendants before exiting", async () => {
+  const pidFile = join(outDir, "orphan.pid");
+  await mkdir(outDir, { recursive: true });
+  await Bun.write(pidFile, "");
+
+  const proc = spawnCli([
+    "sh",
+    "-lc",
+    `sh -lc 'printf %s $$ > "${pidFile}"; while :; do sleep 1; done' & sleep 0.2; exit 0`,
+  ]);
+  const childPid = Number(
+    await waitFor(
+      async () => (await Bun.file(pidFile).text()).trim(),
+      (value) => value.length > 0
+    )
+  );
+
+  expect(await proc.exited).toBe(0);
+  await waitFor(
+    () => pidExists(childPid),
+    (alive) => !alive
+  );
 });

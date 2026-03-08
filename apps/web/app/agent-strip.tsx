@@ -1,5 +1,3 @@
-"use client";
-
 import Image from "next/image";
 
 const AGENTS = [
@@ -90,7 +88,7 @@ export function AgentStrip() {
               >
                 <Image
                   alt={agent.label}
-                  className="h-[72px] w-auto object-contain sm:h-[72px] lg:h-[88px]"
+                  className="h-[72px] w-auto object-contain lg:h-[88px]"
                   height={100}
                   loading="eager"
                   src={agent.src}

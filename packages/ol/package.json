@@ -1,6 +1,6 @@
 {
-  "name": "@openlogs/cli",
-  "version": "0.1.0",
+  "name": "openlogs",
+  "version": "0.0.1",
   "description": "Run local dev commands in a PTY and mirror their logs for LLMs.",
   "license": "MIT",
   "type": "module",

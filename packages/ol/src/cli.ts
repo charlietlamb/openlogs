@@ -2,8 +2,9 @@
 
 /* global Bun */
 
-import { createWriteStream } from "node:fs";
+import { createWriteStream, readFileSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
+import { join } from "node:path";
 import process from "node:process";
 import { finished } from "node:stream/promises";
 import {
@@ -21,6 +22,21 @@ if (process.platform === "win32") {
   console.error("ol currently requires a POSIX terminal (macOS/Linux).");
   process.exit(1);
 }
+
+const supervisionScript = `
+pid_file="\${TMPDIR:-/tmp}/ol-child.$$"
+cleanup() {
+  if [ -f "$pid_file" ]; then
+    child="$(cat "$pid_file")"
+    kill -TERM -"$child" 2>/dev/null || true
+    rm -f "$pid_file"
+  fi
+}
+python3 -c 'import os, sys; open(sys.argv[1], "w").write(str(os.getpid())); os.setpgid(0, 0); os.execvp(sys.argv[2], sys.argv[2:])' "$pid_file" "$@"
+status=$?
+cleanup
+exit "$status"
+`;
 
 try {
   process.exit(await main());
@@ -71,7 +87,10 @@ async function main() {
     },
   });
 
-  const proc = Bun.spawn(options.command, { terminal });
+  const proc = Bun.spawn(
+    ["sh", "-c", supervisionScript, "ol-supervisor", ...options.command],
+    { terminal }
+  );
   const teardown = setupTerminalHandlers(proc, terminal);
 
   if (options.printPaths) {
@@ -112,9 +131,7 @@ function setupTerminalHandlers(proc: Bun.Subprocess, terminal: Bun.Terminal) {
   let rawModeEnabled = false;
   const onInput = (data: Buffer) => {
     if (hasInterruptByte(data)) {
-      if (!proc.killed) {
-        proc.kill("SIGINT");
-      }
+      signalWrappedCommand(proc, "SIGINT");
       return;
     }
 
@@ -125,9 +142,7 @@ function setupTerminalHandlers(proc: Bun.Subprocess, terminal: Bun.Terminal) {
   };
   const signalHandlers = ["SIGINT", "SIGTERM", "SIGHUP"].map((signal) => {
     const handler = () => {
-      if (!proc.killed) {
-        proc.kill(signal);
-      }
+      signalWrappedCommand(proc, signal);
     };
     process.on(signal, handler);
     return [signal, handler] as const;
@@ -155,12 +170,38 @@ function setupTerminalHandlers(proc: Bun.Subprocess, terminal: Bun.Terminal) {
       process.stdin.setRawMode?.(false);
     }
 
-    if (!proc.killed && proc.exitCode === null) {
-      proc.kill("SIGTERM");
-    }
+    signalWrappedCommand(proc, "SIGTERM");
 
     terminal.close();
   };
+}
+
+function signalWrappedCommand(
+  proc: Bun.Subprocess,
+  signal: "SIGINT" | "SIGTERM" | "SIGHUP"
+) {
+  if (proc.exitCode !== null) {
+    return;
+  }
+
+  try {
+    const childPid = Number(
+      readFileSync(getSupervisorPidPath(proc.pid), "utf8").trim()
+    );
+    if (childPid > 0) {
+      process.kill(-childPid, signal);
+    }
+  } catch {
+    // The supervised child group is best-effort; fall back to the wrapper proc.
+  }
+
+  if (!proc.killed) {
+    proc.kill(signal);
+  }
+}
+
+function getSupervisorPidPath(pid: number) {
+  return join(process.env.TMPDIR || "/tmp", `ol-child.${pid}`);
 }
 
 async function closeStreams(

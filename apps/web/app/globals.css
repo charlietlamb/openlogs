@@ -1,4 +1,13 @@
 @import "tailwindcss";
+@source "../**/*.{ts,tsx}";
+
+/* Safelist for log pane — classes constructed dynamically in lookup objects
+   or in files that Turbopack's dev server doesn't reliably scan */
+@source inline("animate-terminal-stream animate-terminal-stream-reverse");
+@source inline("h-10 h-full font-light font-normal text-[11px] opacity-[0.18] blur-[1px] truncate shrink-0 min-w-0 border-[var(--log-row-border)]");
+@source inline("bg-[var(--log-bg)] text-[var(--log-fg)] text-[var(--log-ts)] text-[var(--log-source)] text-[var(--log-msg)] from-[var(--log-bg)]");
+@source inline("text-[var(--log-level-error)] text-[var(--log-level-warn)] text-[var(--log-level-debug)] text-[var(--log-level-trace)] text-[var(--log-level-info)]");
+@source inline("bg-[var(--log-row-error-bg)] bg-[var(--log-row-warn-bg)] bg-[var(--log-row-debug-bg)] bg-[var(--log-row-trace-bg)] bg-[var(--log-row-info-bg)]");
 
 @custom-variant dark (&:is(.dark *));
 
@@ -23,6 +32,24 @@
   --input: oklch(0.9 0 0);
   --ring: oklch(0.12 0 0);
   --radius: 0rem;
+
+  /* Log pane — light mode */
+  --log-bg: var(--background);
+  --log-fg: oklch(0.12 0 0);
+  --log-row-border: oklch(0.12 0 0 / 0.06);
+  --log-ts: oklch(0.12 0 0 / 0.35);
+  --log-source: oklch(0.12 0 0 / 0.55);
+  --log-msg: oklch(0.12 0 0 / 0.5);
+  --log-level-error: oklch(0.5 0.2 27);
+  --log-level-warn: oklch(0.55 0.15 60);
+  --log-level-debug: oklch(0.45 0.12 230);
+  --log-level-trace: oklch(0.12 0 0 / 0.35);
+  --log-level-info: oklch(0.4 0.12 145);
+  --log-row-error-bg: transparent;
+  --log-row-warn-bg: transparent;
+  --log-row-debug-bg: transparent;
+  --log-row-trace-bg: transparent;
+  --log-row-info-bg: transparent;
 }
 
 .dark {
@@ -46,6 +73,29 @@
   --input: oklch(0.4386 0 0);
   --ring: oklch(0.5555 0 0);
   --radius: 0rem;
+
+  /* Log pane — dark mode */
+  --log-bg: oklch(0 0 0);
+  --log-fg: oklch(1 0 0);
+  --log-row-border: oklch(1 0 0 / 0.04);
+  --log-ts: oklch(1 0 0 / 0.38);
+  --log-source: oklch(1 0 0 / 0.62);
+  --log-msg: oklch(1 0 0 / 0.58);
+  --log-level-error: #ff6b6b;
+  --log-level-warn: #fbbf24;
+  --log-level-debug: #7dd3fc;
+  --log-level-trace: oklch(1 0 0 / 0.45);
+  --log-level-info: #7cffb2;
+  --log-row-error-border: oklch(0.7 0.2 27 / 0.25);
+  --log-row-error-bg: oklch(0.7 0.2 27 / 0.08);
+  --log-row-warn-border: oklch(0.75 0.15 60 / 0.2);
+  --log-row-warn-bg: oklch(0.75 0.15 60 / 0.07);
+  --log-row-debug-border: oklch(0.72 0.12 230 / 0.18);
+  --log-row-debug-bg: oklch(0.72 0.12 230 / 0.07);
+  --log-row-trace-border: oklch(1 0 0 / 0.06);
+  --log-row-trace-bg: transparent;
+  --log-row-info-border: oklch(1 0 0 / 0.07);
+  --log-row-info-bg: transparent;
 }
 
 @keyframes terminal-stream {
@@ -187,8 +237,8 @@
       -45deg,
       transparent 0,
       transparent 4px,
-      color-mix(in oklch, var(--foreground) 4%, transparent) 4px,
-      color-mix(in oklch, var(--foreground) 4%, transparent) 5px
+      color-mix(in oklch, var(--foreground) 6%, transparent) 4px,
+      color-mix(in oklch, var(--foreground) 6%, transparent) 5px
     );
   }
 
