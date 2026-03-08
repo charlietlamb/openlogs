@@ -1,0 +1,25 @@
+{
+  "name": "openlogs",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev --filter=web",
+    "build": "turbo build --filter=web",
+    "test": "bun test",
+    "lint": "bun run --cwd apps/web lint",
+    "lint:fix": "bunx biome lint --write .",
+    "format": "bunx biome format --write .",
+    "check": "bunx biome check .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.11",
+    "husky": "^9.1.7",
+    "turbo": "^2.5.4",
+    "ultracite": "^7.2.4"
+  },
+  "packageManager": "bun@1.2.5"
+}

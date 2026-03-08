@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "extends": ["ultracite/biome/core"],
+  "javascript": {
+    "globals": ["Bun"]
+  },
+  "files": {
+    "includes": ["!node_modules", "!.next", "!.turbo", "!dist"]
+  },
+  "linter": {
+    "rules": {
+      "a11y": {
+        "noLabelWithoutControl": "off"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "off"
+      },
+      "performance": {
+        "noBarrelFile": "off"
+      }
+    }
+  }
+}

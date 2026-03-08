@@ -1,0 +1,14 @@
+{
+  "name": "@openlogs/cli",
+  "version": "0.1.0",
+  "description": "Run local dev commands in a PTY and mirror their logs for LLMs.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "openlogs": "./src/cli.ts",
+    "ol": "./src/cli.ts"
+  },
+  "scripts": {
+    "test": "bun test"
+  }
+}
