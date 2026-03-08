@@ -2,12 +2,7 @@
 
 import { CheckIcon, CopyIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import {
-  AgentStrip,
-  ClaudeCodeIcon,
-  OpenAiIcon,
-  OpenCodeLogo,
-} from "./agent-strip";
+import { AgentStrip } from "./agent-strip";
 import { LogsPane } from "./logs-pane";
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -40,22 +35,7 @@ export default function Home() {
                 <AgentStrip />
 
                 <h1 className="max-w-xl font-semibold text-4xl leading-[0.98] tracking-[-0.05em] sm:text-6xl">
-                  Give{" "}
-                  <span className="inline-flex translate-y-[-0.06em] align-middle text-white">
-                    <ClaudeCodeIcon className="size-[0.92em]" />
-                    <span className="sr-only">Claude Code</span>
-                  </span>
-                  ,{" "}
-                  <span className="inline-flex translate-y-[-0.02em] align-middle text-white">
-                    <OpenAiIcon className="size-[0.9em]" />
-                    <span className="sr-only">OpenAI</span>
-                  </span>
-                  , and{" "}
-                  <span className="inline-flex translate-y-[-0.04em] align-middle text-white">
-                    <OpenCodeLogo className="h-[0.95em] w-[0.76em]" />
-                    <span className="sr-only">OpenCode</span>
-                  </span>{" "}
-                  direct access to your logs.
+                  Give coding agents direct access to your logs.
                 </h1>
 
                 <p className="max-w-xl text-base text-white/68 leading-7 sm:text-lg">

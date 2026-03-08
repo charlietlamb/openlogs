@@ -1,10 +1,70 @@
 "use client";
 
+import Image from "next/image";
+
 const AGENTS = [
-  { label: "Claude Code", Icon: ClaudeCodeIcon },
-  { label: "Cursor", Icon: CursorIcon },
-  { label: "OpenAI", Icon: OpenAiIcon },
-  { label: "OpenCode", Icon: OpenCodeLogo },
+  { href: "https://ampcode.com/", label: "AMP", src: "/agents/amp.svg" },
+  {
+    href: "https://antigravity.google/",
+    label: "Antigravity",
+    src: "/agents/antigravity.svg",
+  },
+  {
+    href: "https://claude.com/product/claude-code",
+    label: "Claude Code",
+    src: "/agents/claude-code.svg",
+  },
+  {
+    href: "https://clawd.bot/",
+    label: "ClawdBot",
+    src: "/agents/clawdbot.svg",
+  },
+  { href: "https://cline.bot/", label: "Cline", src: "/agents/cline.svg" },
+  {
+    href: "https://openai.com/codex",
+    label: "Codex",
+    src: "/agents/codex.svg",
+  },
+  { href: "https://cursor.sh", label: "Cursor", src: "/agents/cursor.svg" },
+  { href: "https://factory.ai", label: "Droid", src: "/agents/droid.svg" },
+  {
+    href: "https://gemini.google.com",
+    label: "Gemini",
+    src: "/agents/gemini.svg",
+  },
+  {
+    href: "https://github.com/features/copilot",
+    label: "GitHub Copilot",
+    src: "/agents/copilot.svg",
+  },
+  {
+    href: "https://block.github.io/goose",
+    label: "Goose",
+    src: "/agents/goose.svg",
+  },
+  { href: "https://kilo.ai/", label: "Kilo", src: "/agents/kilo.svg" },
+  {
+    href: "https://kiro.dev/cli",
+    label: "Kiro CLI",
+    src: "/agents/kiro-cli.svg",
+  },
+  {
+    href: "https://opencode.ai/",
+    label: "OpenCode",
+    src: "/agents/opencode.svg",
+  },
+  { href: "https://roocode.com/", label: "Roo", src: "/agents/roo.svg" },
+  { href: "https://www.trae.ai/", label: "Trae", src: "/agents/trae.svg" },
+  {
+    href: "https://code.visualstudio.com/",
+    label: "VSCode",
+    src: "/agents/vscode.svg",
+  },
+  {
+    href: "https://codeium.com/windsurf",
+    label: "Windsurf",
+    src: "/agents/windsurf.svg",
+  },
 ] as const;
 
 export function AgentStrip() {
@@ -13,96 +73,40 @@ export function AgentStrip() {
       <p className="font-mono text-[11px] text-white/72 uppercase tracking-[0.34em]">
         Available for these agents
       </p>
-      <div className="flex flex-wrap items-center gap-x-10 gap-y-5 text-white/88">
-        {AGENTS.map(({ Icon, label }) => (
-          <div
-            className="flex h-12 w-12 items-center justify-center"
-            key={label}
-            title={label}
-          >
-            <Icon className="size-8" />
-          </div>
-        ))}
+
+      <div className="relative w-full overflow-hidden">
+        <div className="pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-24 bg-gradient-to-r from-black to-transparent sm:w-32 lg:w-48" />
+        <div className="pointer-events-none absolute top-0 right-0 bottom-0 z-10 w-24 bg-gradient-to-l from-black to-transparent sm:w-32 lg:w-48" />
+
+        <div className="agent-marquee flex min-w-max">
+          {[0, 1].map((copy) => (
+            <div
+              aria-hidden={copy === 1}
+              className="flex shrink-0 gap-2 sm:gap-3"
+              key={copy}
+            >
+              {AGENTS.map((agent) => (
+                <a
+                  className="flex-shrink-0 grayscale transition-all duration-300 hover:grayscale-0"
+                  href={agent.href}
+                  key={`${copy}-${agent.label}`}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <Image
+                    alt={agent.label}
+                    className="h-[72px] w-auto object-contain sm:h-[72px] lg:h-[88px]"
+                    height={100}
+                    loading="eager"
+                    src={agent.src}
+                    width={100}
+                  />
+                </a>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
-  );
-}
-
-export function OpenAiIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="currentColor"
-      viewBox="0 0 320 320"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <title>OpenAI</title>
-      <path d="M297.06 130.97c7.26-21.79 4.76-45.66-6.85-65.48-17.46-30.4-52.56-46.04-86.84-38.68-15.25-17.18-37.16-26.95-60.13-26.81-35.04-.08-66.13 22.48-76.91 55.82-22.51 4.61-41.94 18.7-53.31 38.67-17.59 30.32-13.58 68.54 9.92 94.54-7.26 21.79-4.76 45.66 6.85 65.48 17.46 30.4 52.56 46.04 86.84 38.68 15.24 17.18 37.16 26.95 60.13 26.8 35.06.09 66.16-22.49 76.94-55.86 22.51-4.61 41.94-18.7 53.31-38.67 17.57-30.32 13.55-68.51-9.94-94.51zm-120.28 168.11c-14.03.02-27.62-4.89-38.39-13.88.49-.26 1.34-.73 1.89-1.07l63.72-36.8c3.26-1.85 5.26-5.32 5.24-9.07v-89.83l26.93 15.55c.29.14.48.42.52.74v74.39c-.04 33.08-26.83 59.9-59.91 59.97zm-128.84-55.03c-7.03-12.14-9.56-26.37-7.15-40.18.47.28 1.3.79 1.89 1.13l63.72 36.8c3.23 1.89 7.23 1.89 10.47 0l77.79-44.92v31.1c.02.32-.13.63-.38.83l-64.41 37.19c-28.69 16.52-65.33 6.7-81.92-21.95zm-16.77-139.09c7-12.16 18.05-21.46 31.21-26.29 0 .55-.03 1.52-.03 2.2v73.61c-.02 3.74 1.98 7.21 5.23 9.06l77.79 44.91-26.93 15.55c-.27.18-.61.21-.91.08l-64.42-37.22c-28.63-16.58-38.45-53.21-21.95-81.89zm221.26 51.49-77.79-44.92 26.93-15.54c.27-.18.61-.21.91-.08l64.42 37.19c28.68 16.57 38.51 53.26 21.94 81.94-7.01 12.14-18.05 21.44-31.2 26.28v-75.81c.03-3.74-1.96-7.2-5.2-9.06zm26.8-40.34c-.47-.29-1.3-.79-1.89-1.13l-63.72-36.8c-3.23-1.89-7.23-1.89-10.47 0l-77.79 44.92v-31.1c-.02-.32.13-.63.38-.83l64.41-37.16c28.69-16.55 65.37-6.7 81.91 22 6.99 12.12 9.52 26.31 7.15 40.1zm-168.51 55.43-26.94-15.55c-.29-.14-.48-.42-.52-.74v-74.39c.02-33.12 26.89-59.96 60.01-59.94 14.01 0 27.57 4.92 38.34 13.88-.49.26-1.33.73-1.89 1.07l-63.72 36.8c-3.26 1.85-5.26 5.31-5.24 9.06l-.04 89.79zm14.63-31.54 34.65-20.01 34.65 20v40.01l-34.65 20-34.65-20z" />
-    </svg>
-  );
-}
-
-export function ClaudeCodeIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="currentColor"
-      viewBox="0 0 24 24"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <title>Claude Code</title>
-      <path d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z" />
-    </svg>
-  );
-}
-
-export function CursorIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-label="Cursor"
-      className={className}
-      fill="currentColor"
-      height="24"
-      viewBox="0 0 466.73 532.09"
-      width="24"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <title>Cursor</title>
-      <path d="M457.43,125.94L244.42,2.96c-6.84-3.95-15.28-3.95-22.12,0L9.3,125.94c-5.75,3.32-9.3,9.46-9.3,16.11v247.99c0,6.65,3.55,12.79,9.3,16.11l213.01,122.98c6.84,3.95,15.28,3.95,22.12,0l213.01-122.98c5.75-3.32,9.3-9.46,9.3-16.11v-247.99c0-6.65-3.55-12.79-9.3-16.11h-.01ZM444.05,151.99l-205.63,356.16c-1.39,2.4-5.06,1.42-5.06-1.36v-233.21c0-4.66-2.49-8.97-6.53-11.31L24.87,145.67c-2.4-1.39-1.42-5.06,1.36-5.06h411.26c5.84,0,9.49,6.33,6.57,11.39h-.01Z" />
-    </svg>
-  );
-}
-
-export function OpenCodeLogo({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 240 300"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <title>OpenCode</title>
-      <g clipPath="url(#clip0_open_code)">
-        <mask height="300" width="240" x="0" y="0">
-          <path d="M240 0H0V300H240V0Z" fill="currentColor" />
-        </mask>
-        <g mask="url(#mask0_open_code)">
-          <path
-            d="M180 240H60V120H180V240Z"
-            fill="currentColor"
-            opacity="0.55"
-          />
-          <path
-            d="M180 60H60V240H180V60ZM240 300H0V0H240V300Z"
-            fill="currentColor"
-          />
-        </g>
-      </g>
-      <defs>
-        <clipPath id="clip0_open_code">
-          <rect fill="currentColor" height="300" width="240" />
-        </clipPath>
-      </defs>
-    </svg>
   );
 }

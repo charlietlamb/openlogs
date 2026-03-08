@@ -101,6 +101,15 @@
   }
 }
 
+@keyframes agent-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 @theme inline {
   --animate-terminal-stream: terminal-stream 28s linear infinite;
   --animate-terminal-stream-reverse: terminal-stream-reverse 38s linear infinite;
@@ -182,13 +191,19 @@
   .terminal-icon-flicker {
     animation: terminal-icon-flicker 7.5s infinite;
   }
+
+  .agent-marquee {
+    animation: agent-marquee 24s linear infinite;
+    will-change: transform;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-terminal-stream,
   .animate-terminal-stream-reverse,
   .terminal-scanlines,
-  .terminal-icon-flicker {
+  .terminal-icon-flicker,
+  .agent-marquee {
     animation: none;
   }
 }
