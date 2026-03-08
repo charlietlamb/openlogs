@@ -3,6 +3,29 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  --background: oklch(0.98 0 0);
+  --foreground: oklch(0.12 0 0);
+  --card: oklch(0.96 0 0);
+  --card-foreground: oklch(0.12 0 0);
+  --popover: oklch(0.98 0 0);
+  --popover-foreground: oklch(0.12 0 0);
+  --primary: oklch(0.12 0 0);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.93 0 0);
+  --secondary-foreground: oklch(0.12 0 0);
+  --muted: oklch(0.93 0 0);
+  --muted-foreground: oklch(0.5 0 0);
+  --accent: oklch(0.88 0 0);
+  --accent-foreground: oklch(0.12 0 0);
+  --destructive: oklch(0.55 0.22 27);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.82 0 0);
+  --input: oklch(0.9 0 0);
+  --ring: oklch(0.12 0 0);
+  --radius: 0rem;
+}
+
+.dark {
   --background: oklch(0.1448 0 0);
   --foreground: oklch(0.9851 0 0);
   --card: oklch(0.2134 0 0);
@@ -147,8 +170,11 @@
     @apply border-border outline-ring/50;
   }
   html {
-    color-scheme: dark;
+    color-scheme: light;
     @apply bg-background text-foreground;
+  }
+  html.dark {
+    color-scheme: dark;
   }
   body {
     @apply bg-background text-foreground;
@@ -156,19 +182,29 @@
 }
 
 @layer components {
+  .hatch-bg {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent 0,
+      transparent 4px,
+      color-mix(in oklch, var(--foreground) 4%, transparent) 4px,
+      color-mix(in oklch, var(--foreground) 4%, transparent) 5px
+    );
+  }
+
   .terminal-grid {
     background-image:
       linear-gradient(
         180deg,
-        rgba(255, 255, 255, 0.05) 0,
-        rgba(255, 255, 255, 0.02) 1px,
+        color-mix(in oklch, var(--foreground) 5%, transparent) 0,
+        color-mix(in oklch, var(--foreground) 2%, transparent) 1px,
         transparent 1px,
         transparent 36px
       ),
       linear-gradient(
         90deg,
-        rgba(255, 255, 255, 0.05) 0,
-        rgba(255, 255, 255, 0.02) 1px,
+        color-mix(in oklch, var(--foreground) 5%, transparent) 0,
+        color-mix(in oklch, var(--foreground) 2%, transparent) 1px,
         transparent 1px,
         transparent 36px
       );
@@ -181,7 +217,7 @@
     background-image: linear-gradient(
       180deg,
       transparent 0,
-      rgba(255, 255, 255, 0.04) 50%,
+      color-mix(in oklch, var(--foreground) 4%, transparent) 50%,
       transparent 100%
     );
     background-size: 100% 6px;

@@ -69,43 +69,37 @@ const AGENTS = [
 
 export function AgentStrip() {
   return (
-    <div className="space-y-5">
-      <p className="font-mono text-[11px] text-white/72 uppercase tracking-[0.34em]">
-        Available for these agents
-      </p>
+    <div className="group relative w-full overflow-hidden">
+      <div className="pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-24 bg-gradient-to-r from-background to-transparent sm:w-32 lg:w-48" />
+      <div className="pointer-events-none absolute top-0 right-0 bottom-0 z-10 w-24 bg-gradient-to-l from-background to-transparent sm:w-32 lg:w-48" />
 
-      <div className="relative w-full overflow-hidden">
-        <div className="pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-24 bg-gradient-to-r from-black to-transparent sm:w-32 lg:w-48" />
-        <div className="pointer-events-none absolute top-0 right-0 bottom-0 z-10 w-24 bg-gradient-to-l from-black to-transparent sm:w-32 lg:w-48" />
-
-        <div className="agent-marquee flex min-w-max">
-          {[0, 1].map((copy) => (
-            <div
-              aria-hidden={copy === 1}
-              className="flex shrink-0 gap-2 sm:gap-3"
-              key={copy}
-            >
-              {AGENTS.map((agent) => (
-                <a
-                  className="flex-shrink-0 grayscale transition-all duration-300 hover:grayscale-0"
-                  href={agent.href}
-                  key={`${copy}-${agent.label}`}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  <Image
-                    alt={agent.label}
-                    className="h-[72px] w-auto object-contain sm:h-[72px] lg:h-[88px]"
-                    height={100}
-                    loading="eager"
-                    src={agent.src}
-                    width={100}
-                  />
-                </a>
-              ))}
-            </div>
-          ))}
-        </div>
+      <div className="agent-marquee flex min-w-max group-hover:[animation-play-state:paused]">
+        {[0, 1].map((copy) => (
+          <div
+            aria-hidden={copy === 1}
+            className="flex shrink-0 gap-2 pr-2 sm:gap-3 sm:pr-3"
+            key={copy}
+          >
+            {AGENTS.map((agent) => (
+              <a
+                className="flex-shrink-0 opacity-50 grayscale invert transition-all duration-300 hover:opacity-100 hover:grayscale-0 dark:invert-0"
+                href={agent.href}
+                key={`${copy}-${agent.label}`}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <Image
+                  alt={agent.label}
+                  className="h-[72px] w-auto object-contain sm:h-[72px] lg:h-[88px]"
+                  height={100}
+                  loading="eager"
+                  src={agent.src}
+                  width={100}
+                />
+              </a>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   );

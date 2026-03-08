@@ -10,9 +10,11 @@ import {
   cleanChunk,
   cleanLogText,
   flushCleanText,
+  getLatestLogPath,
   getLogPaths,
   hasInterruptByte,
-  parseCliArgs,
+  parseArgs,
+  type TailOptions,
 } from "./shared";
 
 if (process.platform === "win32") {
@@ -33,9 +35,19 @@ try {
 }
 
 async function main() {
-  const options = parseCliArgs(process.argv.slice(2));
+  const parsed = parseArgs(process.argv.slice(2));
+  if (parsed.kind === "tail") {
+    return runTail(parsed.options);
+  }
+
+  const { options } = parsed;
   const paths = getLogPaths(options);
   await mkdir(options.outDir, { recursive: true });
+  await Promise.all(
+    [
+      ...new Set([paths.captureRawPath, ...paths.rawPaths, ...paths.textPaths]),
+    ].map((path) => Bun.write(path, ""))
+  );
 
   const captureStream = createWriteStream(paths.captureRawPath);
   const rawStreams = paths.rawPaths.map((path) => createWriteStream(path));
@@ -81,6 +93,19 @@ async function main() {
     await rewriteTextLogs(paths.captureRawPath, paths.textPaths);
     await rm(paths.captureRawPath, { force: true });
   }
+}
+
+async function runTail(options: TailOptions) {
+  const proc = Bun.spawn(
+    ["tail", ...options.tailArgs, getLatestLogPath(options)],
+    {
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    }
+  );
+
+  return await proc.exited;
 }
 
 function setupTerminalHandlers(proc: Bun.Subprocess, terminal: Bun.Terminal) {

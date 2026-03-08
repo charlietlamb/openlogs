@@ -2,9 +2,12 @@ import { expect, test } from "bun:test";
 import {
   cleanChunk,
   cleanLogText,
+  getLatestLogPath,
   getLogPaths,
   hasInterruptByte,
+  parseArgs,
   parseCliArgs,
+  parseTailArgs,
 } from "./shared";
 
 test("parseCliArgs parses wrapper options before the command", () => {
@@ -40,6 +43,27 @@ test("parseCliArgs supports history and path flags", () => {
     printPaths: true,
     writeRaw: true,
     writeText: true,
+  });
+});
+
+test("parseArgs detects the tail subcommand", () => {
+  expect(parseArgs(["tail", "--raw", "-n", "50"])).toEqual({
+    kind: "tail",
+    options: {
+      outDir: ".openlogs",
+      raw: true,
+      tailArgs: ["-n", "50"],
+    },
+  });
+});
+
+test("parseTailArgs supports wrapper flags before tail args", () => {
+  expect(
+    parseTailArgs(["--out-dir", "logs", "--raw", "--", "-n", "25"])
+  ).toEqual({
+    outDir: "logs",
+    raw: true,
+    tailArgs: ["-n", "25"],
   });
 });
 
@@ -86,4 +110,13 @@ test("getLogPaths returns latest and history paths by default", () => {
       ".openlogs/latest.2026-03-08T10-45-12Z.txt",
     ],
   });
+});
+
+test("getLatestLogPath returns the latest text and raw paths", () => {
+  expect(
+    getLatestLogPath({ outDir: ".openlogs", raw: false, tailArgs: [] })
+  ).toBe(".openlogs/latest.txt");
+  expect(
+    getLatestLogPath({ outDir: ".openlogs", raw: true, tailArgs: [] })
+  ).toBe(".openlogs/latest.raw.log");
 });

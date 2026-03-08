@@ -10,14 +10,34 @@ export interface CliOptions {
   writeText: boolean;
 }
 
+export interface TailOptions {
+  outDir: string;
+  raw: boolean;
+  tailArgs: string[];
+}
+
+export type ParsedArgs =
+  | { kind: "run"; options: CliOptions }
+  | { kind: "tail"; options: TailOptions };
+
 const usage =
   "Usage: ol [--out-dir <path>] [--name <name>] [--raw-only|--text-only] [--no-history] [--print-paths] [--] <command...>";
+const tailUsage =
+  "Usage: ol tail [--out-dir <path>] [--raw] [--] [tail args...]";
 const millisecondsAtEnd = /\.\d{3}Z$/;
 
 export interface LogPaths {
   captureRawPath: string;
   rawPaths: string[];
   textPaths: string[];
+}
+
+export function parseArgs(argv: string[]): ParsedArgs {
+  if (argv[0] === "tail") {
+    return { kind: "tail", options: parseTailArgs(argv.slice(1)) };
+  }
+
+  return { kind: "run", options: parseCliArgs(argv) };
 }
 
 export function parseCliArgs(argv: string[]): CliOptions {
@@ -84,6 +104,41 @@ export function parseCliArgs(argv: string[]): CliOptions {
   return { command, history, name, outDir, printPaths, writeRaw, writeText };
 }
 
+export function parseTailArgs(argv: string[]): TailOptions {
+  let outDir = ".openlogs";
+  let raw = false;
+  let i = 0;
+
+  while (i < argv.length) {
+    const arg = argv[i];
+    if (arg === "--") {
+      i += 1;
+      break;
+    }
+    if (!arg.startsWith("-") || arg === "-") {
+      break;
+    }
+
+    switch (arg) {
+      case "--out-dir":
+        outDir = argv[i + 1] ?? fail(`Missing value for ${arg}`);
+        i += 2;
+        continue;
+      case "--raw":
+        raw = true;
+        i += 1;
+        continue;
+      case "--help":
+      case "-h":
+        return fail(tailUsage, 0);
+      default:
+        return { outDir, raw, tailArgs: argv.slice(i) };
+    }
+  }
+
+  return { outDir, raw, tailArgs: argv.slice(i) };
+}
+
 export function cleanChunk(chunk: Uint8Array, decoder: TextDecoder) {
   return normalizeLogText(
     stripVTControlCharacters(decoder.decode(chunk, { stream: true }))
@@ -123,6 +178,10 @@ export function getLogPaths(options: CliOptions, now = new Date()): LogPaths {
       ".txt"
     ),
   };
+}
+
+export function getLatestLogPath(options: TailOptions) {
+  return `${options.outDir}/latest${options.raw ? ".raw.log" : ".txt"}`;
 }
 
 function normalizeLogText(text: string) {
