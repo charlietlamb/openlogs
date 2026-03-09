@@ -27,9 +27,9 @@ const STEPS: Step[] = [
   },
   {
     number: "02",
-    title: "Run with openlogs",
+    title: "Wrap your dev command",
     description:
-      "Prefix your existing dev command to pipe its output into the stream.",
+      "Prefix any command with openlogs (or ol) to capture its output into a live stream your agent can read.",
     command: "openlogs bun run dev",
     flags: [
       {
@@ -59,9 +59,9 @@ const STEPS: Step[] = [
   },
   {
     number: "03",
-    title: "Tell your agent to use the CLI to check the logs",
+    title: "Let your agent tail the stream",
     description:
-      "Your agent can tail the live stream at any point during a debugging session.",
+      "At any point in a debugging session your agent can read the live log stream directly, with no copy-pasting or context switching.",
     command: "openlogs tail",
     flags: [
       {
@@ -81,9 +81,9 @@ const STEPS: Step[] = [
   },
   {
     number: "04",
-    title: "Install the skill to make this even easier",
+    title: "Add the skill for hands-free debugging",
     description:
-      "The OpenLogs skill teaches your agent when and how to check logs automatically — no manual prompting needed.",
+      "The OpenLogs skill tells your agent when and how to check logs automatically, so it reaches for real runtime data before asking you.",
     command: "npx skills add https://github.com/charlietlamb/openlogs",
     skillContent: SKILL_CONTENT,
   },
@@ -128,7 +128,7 @@ export function SetupGuide() {
         <p className={cn(EYEBROW_CLS, "mb-1")}>05</p>
         <h3 className="mb-2 text-sm">Star on GitHub</h3>
         <p className="mb-4 text-muted-foreground text-xs leading-5">
-          If OpenLogs is useful to you, a star helps others find it.
+          If OpenLogs saves you time, a star helps other developers find it.
         </p>
         <a
           className="inline-flex h-9 w-fit items-center gap-2 border border-border px-4 font-mono text-muted-foreground text-xs tracking-wide transition-colors hover:border-foreground hover:text-foreground"
