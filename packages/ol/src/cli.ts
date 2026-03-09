@@ -3,17 +3,21 @@
 /* global Bun */
 
 import { createWriteStream } from "node:fs";
-import { access, mkdir, rm } from "node:fs/promises";
+import { access, appendFile, mkdir, rm } from "node:fs/promises";
 import process from "node:process";
 import { finished } from "node:stream/promises";
 import {
   cleanChunk,
   cleanLogText,
+  findMatchingRun,
   flushCleanText,
   getLatestLogPath,
   getLogPaths,
+  getRunIndexPath,
+  getRunRecord,
   hasInterruptByte,
   parseArgs,
+  type RunRecord,
   type TailOptions,
 } from "./shared";
 
@@ -119,12 +123,14 @@ async function main() {
 
   const { options } = parsed;
   const paths = getLogPaths(options);
+  const run = getRunRecord(options, paths);
   await mkdir(options.outDir, { recursive: true });
   await Promise.all(
     [
       ...new Set([paths.captureRawPath, ...paths.rawPaths, ...paths.textPaths]),
     ].map((path) => Bun.write(path, ""))
   );
+  await appendRunRecord(run);
 
   const captureStream = createWriteStream(paths.captureRawPath);
   const rawStreams = paths.rawPaths.map((path) => createWriteStream(path));
@@ -178,13 +184,17 @@ async function main() {
 }
 
 async function runTail(options: TailOptions) {
-  const path = getLatestLogPath(options);
+  const path = await resolveTailPath(options);
   try {
     await access(path);
   } catch {
     throw Object.assign(
       new Error(
-        `No log found at ${path}. Run your command with "openlogs <command>" first, or pass --out-dir if your logs live elsewhere.`
+        options.query
+          ? `No log found for ${JSON.stringify(
+              options.query
+            )} in ${options.outDir}. Run your command with "openlogs <command>" first, or pass --name to make it easier to find.`
+          : `No log found at ${path}. Run your command with "openlogs <command>" first, or pass --out-dir if your logs live elsewhere.`
       ),
       { code: 1 }
     );
@@ -197,6 +207,20 @@ async function runTail(options: TailOptions) {
   });
 
   return await proc.exited;
+}
+
+async function resolveTailPath(options: TailOptions) {
+  if (!options.query) {
+    return getLatestLogPath(options);
+  }
+
+  const match = findMatchingRun(
+    await loadRunRecords(options.outDir),
+    options.query
+  );
+  return (
+    match?.[options.raw ? "rawPath" : "textPath"] ?? getLatestLogPath(options)
+  );
 }
 
 function setupTerminalHandlers(proc: Bun.Subprocess, terminal: Bun.Terminal) {
@@ -277,6 +301,26 @@ async function rewriteTextLogs(captureRawPath: string, textPaths: string[]) {
 
   const cleaned = cleanLogText(await Bun.file(captureRawPath).text());
   await Promise.all(textPaths.map((path) => Bun.write(path, cleaned)));
+}
+
+async function appendRunRecord(record: RunRecord) {
+  await appendFile(
+    getRunIndexPath(record.outDir),
+    `${JSON.stringify(record)}\n`
+  );
+}
+
+async function loadRunRecords(outDir: string) {
+  const path = getRunIndexPath(outDir);
+  try {
+    const lines = (await Bun.file(path).text())
+      .trim()
+      .split("\n")
+      .filter(Boolean);
+    return lines.map((line) => JSON.parse(line) as RunRecord);
+  } catch {
+    return [];
+  }
 }
 
 function printPaths(rawPaths: string[], textPaths: string[]) {

@@ -7,7 +7,7 @@ import process from "node:process";
 
 const cliPath = join(process.cwd(), "packages/ol/src/cli.ts");
 const outDir = join(process.cwd(), ".tmp-openlogs");
-const historyRawFile = /^latest\.\d{4}-\d{2}-\d{2}T.+\.raw\.log$/;
+const historyRawFile = /\.\d{4}-\d{2}-\d{2}T.+\.raw\.log$/;
 
 afterEach(async () => {
   await rm(outDir, { force: true, recursive: true });
@@ -94,7 +94,7 @@ test("cli can skip history and print paths", async () => {
   expect((await proc.stderr.text()).includes("ol:")).toBe(true);
   expect(
     (await readdir(outDir)).filter((name) => name.includes(".raw.log")).length
-  ).toBe(1);
+  ).toBe(2);
 });
 
 test("cli forwards stdin to the wrapped command", async () => {
@@ -163,6 +163,72 @@ test("cli tail can read the latest raw log", async () => {
 
   expect(await proc.exited).toBe(0);
   expect(await new Response(proc.stdout).text()).toBe("raw-b\n");
+});
+
+test("cli writes command-specific latest logs by default", async () => {
+  const proc = spawnCli(["sleep", "0"]);
+
+  expect(await proc.exited).toBe(0);
+  expect((await readdir(outDir)).includes("sleep-0.txt")).toBe(true);
+  expect((await readdir(outDir)).includes("latest.txt")).toBe(true);
+});
+
+test("cli tail can resolve the most recent matching run", async () => {
+  await mkdir(outDir, { recursive: true });
+  await Bun.write(join(outDir, "dev.txt"), "dev\n");
+  await Bun.write(join(outDir, "dev-server.txt"), "server\n");
+  await Bun.write(
+    join(outDir, "runs.jsonl"),
+    [
+      JSON.stringify({
+        command: "npm run dev",
+        key: "dev",
+        outDir,
+        rawPath: join(outDir, "dev.raw.log"),
+        startedAt: "2026-03-08T10:45:12.000Z",
+        textPath: join(outDir, "dev.txt"),
+      }),
+      JSON.stringify({
+        command: "npm run dev:server",
+        key: "dev-server",
+        outDir,
+        rawPath: join(outDir, "dev-server.raw.log"),
+        startedAt: "2026-03-08T10:50:12.000Z",
+        textPath: join(outDir, "dev-server.txt"),
+      }),
+      "",
+    ].join("\n")
+  );
+
+  const proc = Bun.spawn(
+    ["bun", cliPath, "tail", "--out-dir", outDir, "server", "-n", "1"],
+    {
+      cwd: process.cwd(),
+      stdout: "pipe",
+      stderr: "pipe",
+    }
+  );
+
+  expect(await proc.exited).toBe(0);
+  expect(await new Response(proc.stdout).text()).toBe("server\n");
+});
+
+test("cli tail shows a friendly error when no matching log exists", async () => {
+  await mkdir(outDir, { recursive: true });
+
+  const proc = Bun.spawn(
+    ["bun", cliPath, "tail", "--out-dir", outDir, "server", "-n", "10"],
+    {
+      cwd: process.cwd(),
+      stdout: "pipe",
+      stderr: "pipe",
+    }
+  );
+
+  expect(await proc.exited).toBe(1);
+  expect(await new Response(proc.stderr).text()).toContain(
+    'No log found for "server"'
+  );
 });
 
 test("cli tail shows a friendly error when no log exists", async () => {

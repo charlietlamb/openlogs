@@ -27,7 +27,7 @@ openlogs node server.js
 | Flag | Description | Default |
 |---|---|---|
 | `--out-dir <path>` | Directory for log files | `.openlogs` |
-| `--name <name>` | Log filename base | `latest` |
+| `--name <name>` | Override the command-specific log name | derived from command |
 | `--raw-only` | Skip cleaned text log, write raw only | — |
 | `--text-only` | Skip raw PTY log, write text only | — |
 | `--no-history` | Don't write timestamped history copies | — |
@@ -35,13 +35,13 @@ openlogs node server.js
 
 > `--raw-only` and `--text-only` are mutually exclusive.
 
-After each run, logs are written to `.openlogs/latest.raw.log` and `.openlogs/latest.txt`.
+After each run, OpenLogs updates `.openlogs/latest.raw.log` and `.openlogs/latest.txt` for the most recent run in the project, and also keeps a command-specific latest log such as `.openlogs/npm-run-dev.txt`.
 
 ---
 
 ### 02 — Tell your agent to use the CLI to check the logs
 
-Your agent can tail the live stream at any point during a debugging session.
+Your agent can tail the most recent run at any point during a debugging session, or ask for the most recent matching command.
 
 ```bash
 openlogs tail
@@ -53,10 +53,13 @@ openlogs tail
 |---|---|---|
 | `--out-dir <path>` | Directory to find log file | `.openlogs` |
 | `--raw` | Read raw PTY log instead of cleaned text | — |
+| `[query]` | Match the most recent run whose command or name contains the query | latest run |
 | `[tail args...]` | Forwarded to system tail (e.g. `-f`, `-n 50`) | — |
 
 ```bash
 openlogs tail -n 100
+openlogs tail dev -n 100
+openlogs tail server -f
 openlogs tail --raw -n 100
 openlogs tail -f
 ```

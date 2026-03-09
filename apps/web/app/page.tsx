@@ -12,12 +12,12 @@ function HatchColumn() {
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
-      <section className="relative flex min-h-screen lg:h-dvh lg:border-border lg:border-y">
+    <main className="relative min-h-screen bg-background text-foreground lg:h-dvh lg:overflow-hidden">
+      <section className="relative flex min-h-screen lg:h-full lg:border-border lg:border-y">
         <HatchColumn />
 
         {/* All content */}
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col lg:overflow-hidden">
           <NavHeader />
 
           {/* Row 2 — agent marquee */}

@@ -2,8 +2,11 @@ import { expect, test } from "bun:test";
 import {
   cleanChunk,
   cleanLogText,
+  findMatchingRun,
   getLatestLogPath,
+  getLogKey,
   getLogPaths,
+  getRunRecord,
   hasInterruptByte,
   parseArgs,
   parseCliArgs,
@@ -38,7 +41,7 @@ test("parseCliArgs supports history and path flags", () => {
   ).toEqual({
     command: ["bun", "--watch"],
     history: false,
-    name: "latest",
+    name: undefined,
     outDir: ".openlogs",
     printPaths: true,
     writeRaw: true,
@@ -51,6 +54,7 @@ test("parseArgs detects the tail subcommand", () => {
     kind: "tail",
     options: {
       outDir: ".openlogs",
+      query: undefined,
       raw: true,
       tailArgs: ["-n", "50"],
     },
@@ -59,9 +63,10 @@ test("parseArgs detects the tail subcommand", () => {
 
 test("parseTailArgs supports wrapper flags before tail args", () => {
   expect(
-    parseTailArgs(["--out-dir", "logs", "--raw", "--", "-n", "25"])
+    parseTailArgs(["--out-dir", "logs", "--raw", "dev", "--", "-n", "25"])
   ).toEqual({
     outDir: "logs",
+    query: "dev",
     raw: true,
     tailArgs: ["-n", "25"],
   });
@@ -91,7 +96,7 @@ test("getLogPaths returns latest and history paths by default", () => {
       {
         command: ["bun", "dev"],
         history: true,
-        name: "latest",
+        name: undefined,
         outDir: ".openlogs",
         printPaths: false,
         writeRaw: true,
@@ -100,23 +105,106 @@ test("getLogPaths returns latest and history paths by default", () => {
       new Date("2026-03-08T10:45:12.000Z")
     )
   ).toEqual({
-    captureRawPath: ".openlogs/.latest.2026-03-08T10-45-12Z.raw.log",
+    captureRawPath: ".openlogs/.bun-dev.2026-03-08T10-45-12Z.raw.log",
+    key: "bun-dev",
+    rawPath: ".openlogs/bun-dev.raw.log",
     rawPaths: [
       ".openlogs/latest.raw.log",
-      ".openlogs/latest.2026-03-08T10-45-12Z.raw.log",
+      ".openlogs/bun-dev.raw.log",
+      ".openlogs/bun-dev.2026-03-08T10-45-12Z.raw.log",
     ],
+    textPath: ".openlogs/bun-dev.txt",
     textPaths: [
       ".openlogs/latest.txt",
-      ".openlogs/latest.2026-03-08T10-45-12Z.txt",
+      ".openlogs/bun-dev.txt",
+      ".openlogs/bun-dev.2026-03-08T10-45-12Z.txt",
     ],
   });
 });
 
 test("getLatestLogPath returns the latest text and raw paths", () => {
   expect(
-    getLatestLogPath({ outDir: ".openlogs", raw: false, tailArgs: [] })
+    getLatestLogPath({
+      outDir: ".openlogs",
+      query: undefined,
+      raw: false,
+      tailArgs: [],
+    })
   ).toBe(".openlogs/latest.txt");
   expect(
-    getLatestLogPath({ outDir: ".openlogs", raw: true, tailArgs: [] })
+    getLatestLogPath({
+      outDir: ".openlogs",
+      query: undefined,
+      raw: true,
+      tailArgs: [],
+    })
   ).toBe(".openlogs/latest.raw.log");
+});
+
+test("getLogKey derives a stable command key", () => {
+  expect(
+    getLogKey({ command: ["npm", "run", "dev:server"], name: undefined })
+  ).toBe("npm-run-dev-server");
+  expect(getLogKey({ command: ["npm", "run", "dev"], name: "web" })).toBe(
+    "web"
+  );
+});
+
+test("getRunRecord stores command metadata for later lookup", () => {
+  expect(
+    getRunRecord(
+      {
+        command: ["npm", "run", "dev"],
+        history: true,
+        name: undefined,
+        outDir: ".openlogs",
+        printPaths: false,
+        writeRaw: true,
+        writeText: true,
+      },
+      {
+        captureRawPath: ".openlogs/.npm-run-dev.2026-03-08T10-45-12Z.raw.log",
+        key: "npm-run-dev",
+        rawPath: ".openlogs/npm-run-dev.raw.log",
+        rawPaths: [],
+        textPath: ".openlogs/npm-run-dev.txt",
+        textPaths: [],
+      },
+      new Date("2026-03-08T10:45:12.000Z")
+    )
+  ).toEqual({
+    command: "npm run dev",
+    key: "npm-run-dev",
+    name: undefined,
+    outDir: ".openlogs",
+    rawPath: ".openlogs/npm-run-dev.raw.log",
+    startedAt: "2026-03-08T10:45:12.000Z",
+    textPath: ".openlogs/npm-run-dev.txt",
+  });
+});
+
+test("findMatchingRun returns the most recent matching record", () => {
+  const match = findMatchingRun(
+    [
+      {
+        command: "npm run dev",
+        key: "npm-run-dev",
+        outDir: ".openlogs",
+        rawPath: ".openlogs/npm-run-dev.raw.log",
+        startedAt: "2026-03-08T10:45:12.000Z",
+        textPath: ".openlogs/npm-run-dev.txt",
+      },
+      {
+        command: "npm run dev:server",
+        key: "npm-run-dev-server",
+        outDir: ".openlogs",
+        rawPath: ".openlogs/npm-run-dev-server.raw.log",
+        startedAt: "2026-03-08T10:50:12.000Z",
+        textPath: ".openlogs/npm-run-dev-server.txt",
+      },
+    ],
+    "server"
+  );
+
+  expect(match?.key).toBe("npm-run-dev-server");
 });

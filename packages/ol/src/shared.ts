@@ -3,7 +3,7 @@ import { stripVTControlCharacters } from "node:util";
 export interface CliOptions {
   command: string[];
   history: boolean;
-  name: string;
+  name?: string;
   outDir: string;
   printPaths: boolean;
   writeRaw: boolean;
@@ -12,6 +12,7 @@ export interface CliOptions {
 
 export interface TailOptions {
   outDir: string;
+  query?: string;
   raw: boolean;
   tailArgs: string[];
 }
@@ -23,13 +24,26 @@ export type ParsedArgs =
 const usage =
   "Usage: ol [--out-dir <path>] [--name <name>] [--raw-only|--text-only] [--no-history] [--print-paths] [--] <command...>";
 const tailUsage =
-  "Usage: ol tail [--out-dir <path>] [--raw] [--] [tail args...]";
+  "Usage: ol tail [--out-dir <path>] [--raw] [query] [--] [tail args...]";
 const millisecondsAtEnd = /\.\d{3}Z$/;
 
 export interface LogPaths {
   captureRawPath: string;
+  key: string;
+  rawPath: string;
   rawPaths: string[];
+  textPath: string;
   textPaths: string[];
+}
+
+export interface RunRecord {
+  command: string;
+  key: string;
+  name?: string;
+  outDir: string;
+  rawPath: string;
+  startedAt: string;
+  textPath: string;
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
@@ -101,11 +115,20 @@ export function parseCliArgs(argv: string[]): CliOptions {
     fail(usage);
   }
 
-  return { command, history, name, outDir, printPaths, writeRaw, writeText };
+  return {
+    command,
+    history,
+    name: name === "latest" ? undefined : name,
+    outDir,
+    printPaths,
+    writeRaw,
+    writeText,
+  };
 }
 
 export function parseTailArgs(argv: string[]): TailOptions {
   let outDir = ".openlogs";
+  let query: string | undefined;
   let raw = false;
   let i = 0;
 
@@ -132,11 +155,20 @@ export function parseTailArgs(argv: string[]): TailOptions {
       case "-h":
         return fail(tailUsage, 0);
       default:
-        return { outDir, raw, tailArgs: argv.slice(i) };
+        return { outDir, query, raw, tailArgs: argv.slice(i) };
     }
   }
 
-  return { outDir, raw, tailArgs: argv.slice(i) };
+  if (argv[i] && !argv[i].startsWith("-")) {
+    query = argv[i];
+    i += 1;
+  }
+
+  if (argv[i] === "--") {
+    i += 1;
+  }
+
+  return { outDir, query, raw, tailArgs: argv.slice(i) };
 }
 
 export function cleanChunk(chunk: Uint8Array, decoder: TextDecoder) {
@@ -158,20 +190,27 @@ export function hasInterruptByte(data: Uint8Array) {
 }
 
 export function getLogPaths(options: CliOptions, now = new Date()): LogPaths {
-  const captureRawPath = `${options.outDir}/.${options.name}.${getRunId(now)}.raw.log`;
-  const historyPrefix = `${options.outDir}/${options.name}.${getRunId(now)}`;
-  const latestPrefix = `${options.outDir}/${options.name}`;
+  const key = getLogKey(options);
+  const captureRawPath = `${options.outDir}/.${key}.${getRunId(now)}.raw.log`;
+  const historyPrefix = `${options.outDir}/${key}.${getRunId(now)}`;
+  const latestPrefix = `${options.outDir}/latest`;
+  const namedPrefix = `${options.outDir}/${key}`;
+  const rawPath = `${namedPrefix}.raw.log`;
+  const textPath = `${namedPrefix}.txt`;
 
   return {
     captureRawPath,
+    key,
+    rawPath,
     rawPaths: getVisiblePaths(
-      latestPrefix,
+      [latestPrefix, namedPrefix],
       historyPrefix,
       options.history,
       options.writeRaw
     ),
+    textPath,
     textPaths: getVisiblePaths(
-      latestPrefix,
+      [latestPrefix, namedPrefix],
       historyPrefix,
       options.history,
       options.writeText,
@@ -181,7 +220,51 @@ export function getLogPaths(options: CliOptions, now = new Date()): LogPaths {
 }
 
 export function getLatestLogPath(options: TailOptions) {
-  return `${options.outDir}/latest${options.raw ? ".raw.log" : ".txt"}`;
+  return `${options.outDir}/${
+    options.query ? options.query : "latest"
+  }${options.raw ? ".raw.log" : ".txt"}`;
+}
+
+export function getRunIndexPath(outDir: string) {
+  return `${outDir}/runs.jsonl`;
+}
+
+export function getRunRecord(
+  options: CliOptions,
+  paths: LogPaths,
+  now = new Date()
+) {
+  return {
+    command: options.command.join(" "),
+    key: paths.key,
+    name: options.name,
+    outDir: options.outDir,
+    rawPath: paths.rawPath,
+    startedAt: now.toISOString(),
+    textPath: paths.textPath,
+  } satisfies RunRecord;
+}
+
+export function getLogKey(options: Pick<CliOptions, "command" | "name">) {
+  return options.name || slugify(options.command.join("-")) || "latest";
+}
+
+export function findMatchingRun(
+  records: RunRecord[],
+  query: string | undefined
+): RunRecord | undefined {
+  if (!query) {
+    return records.at(-1);
+  }
+
+  const normalized = query.toLowerCase();
+  return [...records]
+    .reverse()
+    .find((record) =>
+      [record.name, record.command, record.key].some((value) =>
+        value?.toLowerCase().includes(normalized)
+      )
+    );
 }
 
 function normalizeLogText(text: string) {
@@ -189,7 +272,7 @@ function normalizeLogText(text: string) {
 }
 
 function getVisiblePaths(
-  latestPrefix: string,
+  latestPrefixes: string[],
   historyPrefix: string,
   history: boolean,
   enabled: boolean,
@@ -199,13 +282,26 @@ function getVisiblePaths(
     return [];
   }
 
-  return history
-    ? [`${latestPrefix}${suffix}`, `${historyPrefix}${suffix}`]
-    : [`${latestPrefix}${suffix}`];
+  return [
+    ...new Set(
+      [
+        ...latestPrefixes.map((prefix) => `${prefix}${suffix}`),
+        history ? `${historyPrefix}${suffix}` : undefined,
+      ].filter(Boolean)
+    ),
+  ];
 }
 
 function getRunId(now: Date) {
   return now.toISOString().replaceAll(":", "-").replace(millisecondsAtEnd, "Z");
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replaceAll(/^-|-$/g, "")
+    .slice(0, 48);
 }
 
 function fail(message: string, code = 1): never {
