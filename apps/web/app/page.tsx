@@ -1,8 +1,8 @@
 import { HeroCta } from "@/components/hero-cta";
+import { LogsPane } from "@/components/logs/index";
 import { NavHeader } from "@/components/nav-header";
 import { SetupGuide } from "@/components/setup-guide";
 import { AgentStrip } from "./agent-strip";
-import { LogsPane } from "./logs/index";
 
 function HatchColumn() {
   return (
