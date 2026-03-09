@@ -165,6 +165,22 @@ test("cli tail can read the latest raw log", async () => {
   expect(await new Response(proc.stdout).text()).toBe("raw-b\n");
 });
 
+test("cli tail shows a friendly error when no log exists", async () => {
+  const proc = Bun.spawn(
+    ["bun", cliPath, "tail", "--out-dir", outDir, "-n", "10"],
+    {
+      cwd: process.cwd(),
+      stdout: "pipe",
+      stderr: "pipe",
+    }
+  );
+
+  expect(await proc.exited).toBe(1);
+  expect(await new Response(proc.stderr).text()).toContain(
+    `No log found at ${join(outDir, "latest.txt")}.`
+  );
+});
+
 test("cli terminates the wrapped command when the wrapper is terminated", async () => {
   const pidFile = join(outDir, "child.pid");
   await mkdir(outDir, { recursive: true });

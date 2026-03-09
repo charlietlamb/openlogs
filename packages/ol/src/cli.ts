@@ -3,7 +3,7 @@
 /* global Bun */
 
 import { createWriteStream } from "node:fs";
-import { mkdir, rm } from "node:fs/promises";
+import { access, mkdir, rm } from "node:fs/promises";
 import process from "node:process";
 import { finished } from "node:stream/promises";
 import {
@@ -100,7 +100,10 @@ try {
   process.exit(await main());
 } catch (error) {
   const code =
-    typeof error === "object" && error && "code" in error
+    typeof error === "object" &&
+    error &&
+    "code" in error &&
+    Number.isFinite(Number(error.code))
       ? Number(error.code)
       : 1;
   const write = code === 0 ? console.log : console.error;
@@ -175,14 +178,23 @@ async function main() {
 }
 
 async function runTail(options: TailOptions) {
-  const proc = Bun.spawn(
-    ["tail", ...options.tailArgs, getLatestLogPath(options)],
-    {
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    }
-  );
+  const path = getLatestLogPath(options);
+  try {
+    await access(path);
+  } catch {
+    throw Object.assign(
+      new Error(
+        `No log found at ${path}. Run your command with "openlogs <command>" first, or pass --out-dir if your logs live elsewhere.`
+      ),
+      { code: 1 }
+    );
+  }
+
+  const proc = Bun.spawn(["tail", ...options.tailArgs, path], {
+    stdin: "inherit",
+    stdout: "inherit",
+    stderr: "inherit",
+  });
 
   return await proc.exited;
 }

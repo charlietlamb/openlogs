@@ -1,6 +1,6 @@
 {
   "name": "openlogs",
-  "version": "0.0.2-beta.2",
+  "version": "0.0.2-beta.1",
   "description": "Run local dev commands in a PTY and mirror their logs for LLMs.",
   "license": "MIT",
   "type": "module",
@@ -10,7 +10,7 @@
   },
   "scripts": {
     "test": "bun test",
-    "bump": "npm version prerelease --preid=beta --workspaces=false",
-    "patch": "npm version patch --workspaces=false"
+    "bump": "npm version prerelease --preid=beta --workspaces=false && npm publish --tag beta",
+    "patch": "npm version patch --workspaces=false && npm publish --tag latest"
   }
 }

@@ -2,7 +2,7 @@ import { HeroCta } from "@/components/hero-cta";
 import { NavHeader } from "@/components/nav-header";
 import { SetupGuide } from "@/components/setup-guide";
 import { AgentStrip } from "./agent-strip";
-import { LogsPane } from "./logs";
+import { LogsPane } from "./logs/index";
 
 function HatchColumn() {
   return (
