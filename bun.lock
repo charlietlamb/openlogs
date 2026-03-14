@@ -15,6 +15,7 @@
       "name": "web",
       "version": "0.1.0",
       "dependencies": {
+        "@databuddy/sdk": "^2.3.29",
         "@phosphor-icons/react": "^2.1.10",
         "clsx": "^2.1.1",
         "next": "16.1.6",
@@ -69,6 +70,8 @@
     "@clack/core": ["@clack/core@1.1.0", "", { "dependencies": { "sisteransi": "^1.0.5" } }, "sha512-SVcm4Dqm2ukn64/8Gub2wnlA5nS2iWJyCkdNHcvNHPIeBTGojpdJ+9cZKwLfmqy7irD4N5qLteSilJlE0WLAtA=="],
 
     "@clack/prompts": ["@clack/prompts@1.1.0", "", { "dependencies": { "@clack/core": "1.1.0", "sisteransi": "^1.0.5" } }, "sha512-pkqbPGtohJAvm4Dphs2M8xE29ggupihHdy1x84HNojZuMtFsHiUlRvqD24tM2+XmI+61LlfNceM3Wr7U5QES5g=="],
+
+    "@databuddy/sdk": ["@databuddy/sdk@2.3.29", "", { "peerDependencies": { "@ai-sdk/provider": "^2.0.0", "ai": "^5.0.51", "msw": "^2.11.5", "react": ">=18", "tokenlens": "^2.0.0-alpha.3", "vue": ">=3" }, "optionalPeers": ["@ai-sdk/provider", "ai", "msw", "react", "tokenlens", "vue"] }, "sha512-GuqlPsrgxYpmICstsVEpr6FFWHCkcTW5sgdKgPmCXfJyzdOUXRn17HkGEiuZKYzbADSxx1x9dXMCL/40JP3p2g=="],
 
     "@emnapi/runtime": ["@emnapi/runtime@1.8.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-mehfKSMWjjNol8659Z8KxEMrdSJDDot5SXMq00dM8BN4o+CLNXQ0xH2V7EchNHV4RmbZLmmPdEaXZc5H2FXmDg=="],
 
