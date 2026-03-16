@@ -8,6 +8,30 @@ import process from "node:process";
 const cliPath = join(process.cwd(), "packages/ol/src/cli.ts");
 const outDir = join(process.cwd(), ".tmp-openlogs");
 const historyRawFile = /\.\d{4}-\d{2}-\d{2}T.+\.raw\.log$/;
+const ptyScript = `
+import os
+import pty
+import subprocess
+import sys
+
+master, slave = pty.openpty()
+proc = subprocess.Popen(
+    sys.argv[1:], stdin=slave, stdout=slave, stderr=slave, close_fds=True
+)
+os.close(slave)
+
+while True:
+    try:
+        chunk = os.read(master, 4096)
+        if not chunk:
+            break
+        os.write(sys.stdout.fileno(), chunk)
+    except OSError:
+        break
+
+os.close(master)
+raise SystemExit(proc.wait())
+`;
 
 afterEach(async () => {
   await rm(outDir, { force: true, recursive: true });
@@ -20,6 +44,17 @@ function spawnCli(command: string[]) {
     stdout: "pipe",
     stderr: "pipe",
   });
+}
+
+function spawnCliInPty(command: string[]) {
+  return Bun.spawn(
+    ["python3", "-c", ptyScript, "bun", cliPath, "--out-dir", outDir, ...command],
+    {
+      cwd: process.cwd(),
+      stdout: "pipe",
+      stderr: "pipe",
+    }
+  );
 }
 
 async function waitFor<T>(
@@ -125,10 +160,37 @@ test("cli forwards ctrl c to the wrapped command even with no prior output", asy
   expect(await Bun.file(join(outDir, "latest.raw.log")).text()).toBe("");
 });
 
+test("cli gives ctrl c handlers time to shut down cleanly", async () => {
+  const proc = spawnCli([
+    "sh",
+    "-lc",
+    "trap 'sleep 2; exit 130' INT; while :; do sleep 1; done",
+  ]);
+
+  await Bun.sleep(100);
+  const startedAt = Date.now();
+  proc.stdin.write(Uint8Array.from([3]));
+  proc.stdin.end();
+
+  expect(await proc.exited).toBe(130);
+  expect(Date.now() - startedAt).toBeGreaterThanOrEqual(1800);
+});
+
 test("cli preserves the wrapped command exit code", async () => {
   const proc = spawnCli(["sh", "-lc", "exit 7"]);
 
   expect(await proc.exited).toBe(7);
+});
+
+test("cli works when launched from a tty", async () => {
+  const proc = spawnCliInPty([
+    "bun",
+    "--eval",
+    "process.stdout.write(`tty\\n`)",
+  ]);
+
+  expect(await proc.exited).toBe(0);
+  expect(await Bun.file(join(outDir, "latest.txt")).text()).toBe("tty\n");
 });
 
 test("cli tail prints the latest text log", async () => {

@@ -73,6 +73,12 @@ def terminate_tracked(signum):
         except ProcessLookupError:
             pass
 
+    deadline = time.time() + (10 if signum == signal.SIGINT else 1)
+    while time.time() < deadline:
+        if child.poll() is not None:
+            break
+        time.sleep(0.05)
+
     deadline = time.time() + 1
     while time.time() < deadline:
         if not living_pids():
@@ -136,31 +142,29 @@ async function main() {
   const rawStreams = paths.rawPaths.map((path) => createWriteStream(path));
   const textStreams = paths.textPaths.map((path) => createWriteStream(path));
   const decoder = new TextDecoder();
-  const terminal = new Bun.Terminal({
-    cols: process.stdout.columns ?? 80,
-    rows: process.stdout.rows ?? 24,
-    data(_, data) {
-      process.stdout.write(data);
-      captureStream.write(data);
-      for (const stream of rawStreams) {
-        stream.write(data);
-      }
-      const cleaned = cleanChunk(data, decoder);
-      if (cleaned) {
-        for (const stream of textStreams) {
-          stream.write(cleaned);
-        }
-      }
-    },
-  });
-
   const proc = Bun.spawn(
     ["python3", "-c", supervisionScript, ...options.command],
     {
-      terminal,
+      terminal: {
+        cols: process.stdout.columns ?? 80,
+        rows: process.stdout.rows ?? 24,
+        data(_, data) {
+          process.stdout.write(data);
+          captureStream.write(data);
+          for (const stream of rawStreams) {
+            stream.write(data);
+          }
+          const cleaned = cleanChunk(data, decoder);
+          if (cleaned) {
+            for (const stream of textStreams) {
+              stream.write(cleaned);
+            }
+          }
+        },
+      },
     }
   );
-  const teardown = setupTerminalHandlers(proc, terminal);
+  const teardown = setupTerminalHandlers(proc);
 
   if (options.printPaths) {
     printPaths(paths.rawPaths, paths.textPaths);
@@ -223,7 +227,12 @@ async function resolveTailPath(options: TailOptions) {
   );
 }
 
-function setupTerminalHandlers(proc: Bun.Subprocess, terminal: Bun.Terminal) {
+function setupTerminalHandlers(proc: Bun.Subprocess) {
+  const { terminal } = proc;
+  if (!terminal) {
+    throw new Error("Failed to create PTY terminal.");
+  }
+
   let rawModeEnabled = false;
   const onInput = (data: Buffer) => {
     if (hasInterruptByte(data)) {
