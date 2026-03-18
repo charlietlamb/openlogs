@@ -10,6 +10,7 @@
   },
   "scripts": {
     "test": "bun test",
+    "prepublishOnly": "bun test",
     "bump": "npm version prerelease --preid=beta --workspaces=false && npm publish --tag beta",
     "patch": "npm version patch --workspaces=false && npm publish --tag latest"
   }
