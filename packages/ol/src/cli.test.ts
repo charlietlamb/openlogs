@@ -193,6 +193,39 @@ test("cli works when launched from a tty", async () => {
   expect(await Bun.file(join(outDir, "latest.txt")).text()).toBe("tty\n");
 });
 
+test("cli can run bun scripts that include --elide-lines in non-tty mode", async () => {
+  const projectDir = join(outDir, "fixture-project");
+  await mkdir(projectDir, { recursive: true });
+  await Bun.write(
+    join(projectDir, "package.json"),
+    JSON.stringify(
+      {
+        name: "fixture-project",
+        private: true,
+        scripts: {
+          "dev:desktop":
+            'python3 -c "import sys; sys.stdout.write(\'desktop-ok\\\\n\')" --elide-lines=0',
+        },
+      },
+      null,
+      2
+    )
+  );
+
+  const proc = Bun.spawn(
+    ["bun", cliPath, "--out-dir", outDir, "bun", "dev:desktop"],
+    {
+      cwd: projectDir,
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+    }
+  );
+
+  expect(await proc.exited).toBe(0);
+  expect(await Bun.file(join(outDir, "latest.txt")).text()).toContain("desktop-ok\n");
+});
+
 test("cli tail prints the latest text log", async () => {
   await mkdir(outDir, { recursive: true });
   await Bun.write(join(outDir, "latest.txt"), "one\ntwo\nthree\n");

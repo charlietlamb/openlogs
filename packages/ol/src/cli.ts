@@ -2,8 +2,9 @@
 
 /* global Bun */
 
-import { createWriteStream } from "node:fs";
+import { createWriteStream, existsSync, readFileSync } from "node:fs";
 import { access, appendFile, mkdir, rm } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import process from "node:process";
 import { finished } from "node:stream/promises";
 import {
@@ -50,9 +51,9 @@ def snapshot_descendants():
     while stack:
         current = stack.pop()
         for descendant in children.get(current, []):
-          if descendant not in tracked:
-              tracked.add(descendant)
-              stack.append(descendant)
+            if descendant not in tracked:
+                tracked.add(descendant)
+                stack.append(descendant)
 
 def living_pids():
     pids = [child.pid, *tracked]
@@ -128,9 +129,11 @@ async function main() {
   }
 
   const { options } = parsed;
-  const paths = getLogPaths(options);
-  const run = getRunRecord(options, paths);
-  await mkdir(options.outDir, { recursive: true });
+  const command = normalizeCommandForEnvironment(options.command);
+  const normalizedOptions = { ...options, command };
+  const paths = getLogPaths(normalizedOptions);
+  const run = getRunRecord(normalizedOptions, paths);
+  await mkdir(normalizedOptions.outDir, { recursive: true });
   await Promise.all(
     [
       ...new Set([paths.captureRawPath, ...paths.rawPaths, ...paths.textPaths]),
@@ -142,36 +145,40 @@ async function main() {
   const rawStreams = paths.rawPaths.map((path) => createWriteStream(path));
   const textStreams = paths.textPaths.map((path) => createWriteStream(path));
   const decoder = new TextDecoder();
+  const writeChunk = (chunk: Uint8Array) => {
+    process.stdout.write(chunk);
+    captureStream.write(chunk);
+    for (const stream of rawStreams) {
+      stream.write(chunk);
+    }
+    const cleaned = cleanChunk(chunk, decoder);
+    if (cleaned) {
+      for (const stream of textStreams) {
+        stream.write(cleaned);
+      }
+    }
+  };
   const proc = Bun.spawn(
-    ["python3", "-c", supervisionScript, ...options.command],
+    ["python3", "-c", supervisionScript, ...normalizedOptions.command],
     {
-      terminal: {
-        cols: process.stdout.columns ?? 80,
-        rows: process.stdout.rows ?? 24,
-        data(_, data) {
-          process.stdout.write(data);
-          captureStream.write(data);
-          for (const stream of rawStreams) {
-            stream.write(data);
-          }
-          const cleaned = cleanChunk(data, decoder);
-          if (cleaned) {
-            for (const stream of textStreams) {
-              stream.write(cleaned);
-            }
-          }
-        },
-      },
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
     }
   );
-  const teardown = setupTerminalHandlers(proc);
+  const teardown = setupProcessHandlers(proc);
+  const outputPump = Promise.all([
+    pumpProcessOutput(proc.stdout, writeChunk),
+    pumpProcessOutput(proc.stderr, writeChunk),
+  ]);
 
-  if (options.printPaths) {
+  if (normalizedOptions.printPaths) {
     printPaths(paths.rawPaths, paths.textPaths);
   }
 
   try {
-    return await proc.exited;
+    const [exitCode] = await Promise.all([proc.exited, outputPump]);
+    return exitCode;
   } finally {
     const flushed = flushCleanText(decoder);
     if (flushed) {
@@ -227,12 +234,7 @@ async function resolveTailPath(options: TailOptions) {
   );
 }
 
-function setupTerminalHandlers(proc: Bun.Subprocess) {
-  const { terminal } = proc;
-  if (!terminal) {
-    throw new Error("Failed to create PTY terminal.");
-  }
-
+function setupProcessHandlers(proc: Bun.Subprocess) {
   let rawModeEnabled = false;
   const onInput = (data: Buffer) => {
     if (hasInterruptByte(data)) {
@@ -241,11 +243,7 @@ function setupTerminalHandlers(proc: Bun.Subprocess) {
       }
       return;
     }
-
-    terminal.write(data);
-  };
-  const onResize = () => {
-    terminal.resize(process.stdout.columns ?? 80, process.stdout.rows ?? 24);
+    proc.stdin?.write(data);
   };
   const signalHandlers = ["SIGINT", "SIGTERM", "SIGHUP"].map((signal) => {
     const handler = () => {
@@ -264,12 +262,11 @@ function setupTerminalHandlers(proc: Bun.Subprocess) {
 
   process.stdin.resume();
   process.stdin.on("data", onInput);
-  process.stdout.on("resize", onResize);
 
   return () => {
     process.stdin.off("data", onInput);
-    process.stdout.off("resize", onResize);
     process.stdin.pause();
+    proc.stdin?.end();
 
     for (const [signal, handler] of signalHandlers) {
       process.off(signal, handler);
@@ -282,9 +279,108 @@ function setupTerminalHandlers(proc: Bun.Subprocess) {
     if (!proc.killed && proc.exitCode === null) {
       proc.kill("SIGTERM");
     }
-
-    terminal.close();
   };
+}
+
+function normalizeCommandForEnvironment(command: string[]) {
+  const normalized = stripElideLineArgs(command);
+  const expanded = expandBunScriptIfNeeded(normalized);
+  return expanded ?? normalized;
+}
+
+async function pumpProcessOutput(
+  stream: ReadableStream<Uint8Array> | null,
+  onChunk: (chunk: Uint8Array) => void
+) {
+  if (!stream) {
+    return;
+  }
+
+  const reader = stream.getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (value) {
+        onChunk(value);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function stripElideLineArgs(command: string[]) {
+  const normalized: string[] = [];
+  for (let i = 0; i < command.length; i += 1) {
+    const arg = command[i];
+    if (arg.startsWith("--elide-lines=")) {
+      continue;
+    }
+    if (arg === "--elide-lines") {
+      i += 1;
+      continue;
+    }
+    normalized.push(arg);
+  }
+  return normalized;
+}
+
+function expandBunScriptIfNeeded(command: string[]) {
+  if (command.length !== 2 || command[0] !== "bun") {
+    return null;
+  }
+
+  const scriptName = command[1];
+  if (scriptName.startsWith("-")) {
+    return null;
+  }
+
+  const packageJsonPath = findNearestPackageJson(process.cwd());
+  if (!packageJsonPath) {
+    return null;
+  }
+
+  const packageJson = JSON.parse(
+    readFileSync(packageJsonPath, "utf8")
+  ) as { scripts?: Record<string, string> };
+  const script = packageJson.scripts?.[scriptName];
+  if (!script || !script.includes("--elide-lines")) {
+    return null;
+  }
+
+  const sanitized = sanitizeScriptCommand(script);
+  if (!sanitized) {
+    return null;
+  }
+
+  return ["sh", "-lc", sanitized];
+}
+
+function sanitizeScriptCommand(script: string) {
+  return script
+    .replace(/(^|\s)--elide-lines=\S+(?=\s|$)/g, " ")
+    .replace(/(^|\s)--elide-lines\s+\S+(?=\s|$)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findNearestPackageJson(startDir: string) {
+  let current = startDir;
+  while (true) {
+    const candidate = join(current, "package.json");
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+
+    const parent = dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
+  }
 }
 
 async function closeStreams(
