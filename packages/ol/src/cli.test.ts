@@ -48,13 +48,29 @@ function spawnCli(command: string[]) {
 
 function spawnCliInPty(command: string[]) {
   return Bun.spawn(
-    ["python3", "-c", ptyScript, "bun", cliPath, "--out-dir", outDir, ...command],
+    [
+      "python3",
+      "-c",
+      ptyScript,
+      "bun",
+      cliPath,
+      "--out-dir",
+      outDir,
+      ...command,
+    ],
     {
       cwd: process.cwd(),
       stdout: "pipe",
       stderr: "pipe",
     }
   );
+}
+
+function getAvailablePort() {
+  const server = Bun.serve({ port: 0, fetch: () => new Response("ok") });
+  const { port } = server;
+  server.stop(true);
+  return port;
 }
 
 async function waitFor<T>(
@@ -191,6 +207,40 @@ test("cli works when launched from a tty", async () => {
 
   expect(await proc.exited).toBe(0);
   expect(await Bun.file(join(outDir, "latest.txt")).text()).toBe("tty\n");
+});
+
+test("cli starts a browser collector while the command runs", async () => {
+  const port = getAvailablePort();
+  const proc = Bun.spawn(
+    ["bun", cliPath, "--out-dir", outDir, "sh", "-lc", "sleep 5"],
+    {
+      cwd: process.cwd(),
+      env: { ...Bun.env, OPENLOGS_COLLECTOR_PORT: String(port) },
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+    }
+  );
+
+  try {
+    const health = await waitFor(
+      async () => {
+        try {
+          const response = await fetch(`http://127.0.0.1:${port}/health`);
+          return response.ok ? response.json() : null;
+        } catch {
+          return null;
+        }
+      },
+      (value) => value?.outDir === outDir
+    );
+
+    expect(health.ok).toBe(true);
+  } finally {
+    proc.kill("SIGTERM");
+  }
+
+  expect(await proc.exited).toBe(143);
 });
 
 test("cli tail prints the latest text log", async () => {
