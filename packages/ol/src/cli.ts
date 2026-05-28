@@ -6,6 +6,7 @@ import { createWriteStream } from "node:fs";
 import { access, appendFile, mkdir, rm } from "node:fs/promises";
 import process from "node:process";
 import { finished } from "node:stream/promises";
+import { loadCollectorRecord, runCollector } from "./collector";
 import {
   cleanChunk,
   cleanLogText,
@@ -27,8 +28,18 @@ if (process.platform === "win32") {
 }
 
 const supervisionScript = `
-import os
 import signal
+
+pending_signal = None
+
+def handle_early_signal(signum, _frame):
+    global pending_signal
+    pending_signal = signum
+
+for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    signal.signal(signum, handle_early_signal)
+
+import os
 import subprocess
 import sys
 import time
@@ -98,6 +109,9 @@ def handle_signal(signum, _frame):
 for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
     signal.signal(signum, handle_signal)
 
+if pending_signal is not None:
+    handle_signal(pending_signal, None)
+
 while child.poll() is None:
     snapshot_descendants()
     time.sleep(0.05)
@@ -123,6 +137,9 @@ try {
 
 async function main() {
   const parsed = parseArgs(process.argv.slice(2));
+  if (parsed.kind === "collector") {
+    return runCollector(parsed.options);
+  }
   if (parsed.kind === "tail") {
     return runTail(parsed.options);
   }
@@ -142,6 +159,7 @@ async function main() {
   const rawStreams = paths.rawPaths.map((path) => createWriteStream(path));
   const textStreams = paths.textPaths.map((path) => createWriteStream(path));
   const decoder = new TextDecoder();
+  let collector: Bun.Subprocess | undefined;
   const proc = Bun.spawn(
     ["python3", "-c", supervisionScript, ...options.command],
     {
@@ -171,6 +189,7 @@ async function main() {
   }
 
   try {
+    collector = await startCollector(options.outDir);
     return await proc.exited;
   } finally {
     const flushed = flushCleanText(decoder);
@@ -181,9 +200,75 @@ async function main() {
     }
 
     await teardown();
+    await stopCollector(collector);
     await closeStreams(captureStream, rawStreams, textStreams);
     await rewriteTextLogs(paths.captureRawPath, paths.textPaths);
     await rm(paths.captureRawPath, { force: true });
+  }
+}
+
+async function stopCollector(proc: Bun.Subprocess | undefined) {
+  if (!proc) {
+    return;
+  }
+  proc.kill("SIGTERM");
+  await proc.exited;
+}
+
+async function startCollector(outDir: string) {
+  const host = "127.0.0.1";
+  const preferredPort = Number(Bun.env.OPENLOGS_COLLECTOR_PORT ?? 4318);
+
+  const existing = await loadCollectorRecord(outDir);
+  if (existing && (await isCollectorHealthy(host, existing.port, outDir))) {
+    return;
+  }
+
+  const proc = Bun.spawn(
+    [
+      "bun",
+      process.argv[1],
+      "collector",
+      "--out-dir",
+      outDir,
+      "--host",
+      host,
+      "--port",
+      String(preferredPort),
+    ],
+    { stderr: "pipe", stdin: "ignore", stdout: "ignore" }
+  );
+
+  for (let i = 0; i < 100; i += 1) {
+    const record = await loadCollectorRecord(outDir);
+    if (
+      record?.pid === proc.pid &&
+      (await isCollectorHealthy(host, record.port, outDir))
+    ) {
+      return proc;
+    }
+    if (proc.exitCode !== null) {
+      break;
+    }
+    await Bun.sleep(50);
+  }
+
+  proc.kill("SIGTERM");
+  const detail = proc.stderr
+    ? `\n${await new Response(proc.stderr).text()}`
+    : "";
+  throw new Error(
+    `Failed to start the openlogs collector for ${outDir} (preferred port ${preferredPort}).${detail}`
+  );
+}
+
+async function isCollectorHealthy(host: string, port: number, outDir: string) {
+  try {
+    const health = await fetch(`http://${host}:${port}/health`);
+    const record = await health.json();
+    return health.ok && record?.ok === true && record?.outDir === outDir;
+  } catch {
+    return false;
   }
 }
 

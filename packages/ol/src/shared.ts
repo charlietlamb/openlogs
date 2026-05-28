@@ -17,7 +17,14 @@ export interface TailOptions {
   tailArgs: string[];
 }
 
+export interface ServeOptions {
+  host: string;
+  outDir: string;
+  port: number;
+}
+
 export type ParsedArgs =
+  | { kind: "collector"; options: ServeOptions }
   | { kind: "run"; options: CliOptions }
   | { kind: "tail"; options: TailOptions };
 
@@ -46,7 +53,16 @@ export interface RunRecord {
   textPath: string;
 }
 
+export interface CollectorRecord extends ServeOptions {
+  pid: number;
+  projectRoot: string;
+  startedAt: string;
+}
+
 export function parseArgs(argv: string[]): ParsedArgs {
+  if (argv[0] === "collector") {
+    return { kind: "collector", options: parseServeArgs(argv.slice(1)) };
+  }
   if (argv[0] === "tail") {
     return { kind: "tail", options: parseTailArgs(argv.slice(1)) };
   }
@@ -171,6 +187,37 @@ export function parseTailArgs(argv: string[]): TailOptions {
   return { outDir, query, raw, tailArgs: argv.slice(i) };
 }
 
+export function parseServeArgs(argv: string[]): ServeOptions {
+  let host = "127.0.0.1";
+  let outDir = ".openlogs";
+  let port = 4318;
+
+  for (let i = 0; i < argv.length; ) {
+    const arg = argv[i];
+    switch (arg) {
+      case "--host":
+        host = argv[i + 1] ?? fail(`Missing value for ${arg}`);
+        i += 2;
+        break;
+      case "--out-dir":
+        outDir = argv[i + 1] ?? fail(`Missing value for ${arg}`);
+        i += 2;
+        break;
+      case "--port":
+        port = Number(argv[i + 1] ?? fail(`Missing value for ${arg}`));
+        if (!Number.isInteger(port) || port <= 0) {
+          fail(`Invalid value for ${arg}`);
+        }
+        i += 2;
+        break;
+      default:
+        fail(`Unknown collector option: ${arg}`);
+    }
+  }
+
+  return { host, outDir, port };
+}
+
 export function cleanChunk(chunk: Uint8Array, decoder: TextDecoder) {
   return normalizeLogText(
     stripVTControlCharacters(decoder.decode(chunk, { stream: true }))
@@ -229,6 +276,10 @@ export function getRunIndexPath(outDir: string) {
   return `${outDir}/runs.jsonl`;
 }
 
+export function getCollectorPath(outDir: string) {
+  return `${outDir}/collector.json`;
+}
+
 export function getRunRecord(
   options: CliOptions,
   paths: LogPaths,
@@ -239,6 +290,36 @@ export function getRunRecord(
     key: paths.key,
     name: options.name,
     outDir: options.outDir,
+    rawPath: paths.rawPath,
+    startedAt: now.toISOString(),
+    textPath: paths.textPath,
+  } satisfies RunRecord;
+}
+
+export function getBrowserLogPaths(outDir: string, source?: string): LogPaths {
+  const key = source ? `browser-${slugify(source)}` : "browser";
+  const prefix = `${outDir}/${key}`;
+  return {
+    captureRawPath: `${prefix}.raw.log`,
+    key,
+    rawPath: `${prefix}.raw.log`,
+    rawPaths: [`${prefix}.raw.log`],
+    textPath: `${prefix}.txt`,
+    textPaths: [`${prefix}.txt`],
+  };
+}
+
+export function getBrowserRunRecord(
+  outDir: string,
+  paths: LogPaths,
+  source?: string,
+  now = new Date()
+) {
+  return {
+    command: source ? `browser ${source}` : "browser",
+    key: paths.key,
+    name: source,
+    outDir,
     rawPath: paths.rawPath,
     startedAt: now.toISOString(),
     textPath: paths.textPath,
