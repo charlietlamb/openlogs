@@ -4,6 +4,14 @@ Give coding agents direct access to your logs.
 
 OpenLogs turns raw product, API, worker, and infra events into a stream agents can inspect so they can debug failures, trace requests, and answer with real runtime context instead of guesses.
 
+## Prerequisites
+
+OpenLogs requires [Bun](https://bun.sh) as its runtime.
+
+```bash
+curl -fsSL https://bun.sh/install | bash
+```
+
 ## Install
 
 ```bash
