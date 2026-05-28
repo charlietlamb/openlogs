@@ -137,6 +137,11 @@ try {
 
 async function main() {
   const parsed = parseArgs(process.argv.slice(2));
+  if (parsed.kind === "version") {
+    const { version } = await import("../package.json");
+    console.log(version);
+    return 0;
+  }
   if (parsed.kind === "collector") {
     return runCollector(parsed.options);
   }

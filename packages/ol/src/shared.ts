@@ -26,7 +26,8 @@ export interface ServeOptions {
 export type ParsedArgs =
   | { kind: "collector"; options: ServeOptions }
   | { kind: "run"; options: CliOptions }
-  | { kind: "tail"; options: TailOptions };
+  | { kind: "tail"; options: TailOptions }
+  | { kind: "version" };
 
 const usage =
   "Usage: ol [--out-dir <path>] [--name <name>] [--raw-only|--text-only] [--no-history] [--print-paths] [--] <command...>";
@@ -60,6 +61,9 @@ export interface CollectorRecord extends ServeOptions {
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
+  if (argv[0] === "--version" || argv[0] === "-v") {
+    return { kind: "version" };
+  }
   if (argv[0] === "collector") {
     return { kind: "collector", options: parseServeArgs(argv.slice(1)) };
   }
