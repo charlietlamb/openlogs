@@ -6,7 +6,7 @@ import { createWriteStream } from "node:fs";
 import { access, appendFile, mkdir, rm } from "node:fs/promises";
 import process from "node:process";
 import { finished } from "node:stream/promises";
-import { runCollector } from "./collector";
+import { loadCollectorRecord, runCollector } from "./collector";
 import {
   cleanChunk,
   cleanLogText,
@@ -217,8 +217,10 @@ async function stopCollector(proc: Bun.Subprocess | undefined) {
 
 async function startCollector(outDir: string) {
   const host = "127.0.0.1";
-  const port = Number(Bun.env.OPENLOGS_COLLECTOR_PORT ?? 4318);
-  if (await isCollectorHealthy(host, port, outDir)) {
+  const preferredPort = Number(Bun.env.OPENLOGS_COLLECTOR_PORT ?? 4318);
+
+  const existing = await loadCollectorRecord(outDir);
+  if (existing && (await isCollectorHealthy(host, existing.port, outDir))) {
     return;
   }
 
@@ -232,13 +234,17 @@ async function startCollector(outDir: string) {
       "--host",
       host,
       "--port",
-      String(port),
+      String(preferredPort),
     ],
     { stderr: "pipe", stdin: "ignore", stdout: "ignore" }
   );
 
-  for (let i = 0; i < 40; i += 1) {
-    if (await isCollectorHealthy(host, port, outDir)) {
+  for (let i = 0; i < 100; i += 1) {
+    const record = await loadCollectorRecord(outDir);
+    if (
+      record?.pid === proc.pid &&
+      (await isCollectorHealthy(host, record.port, outDir))
+    ) {
       return proc;
     }
     if (proc.exitCode !== null) {
@@ -252,7 +258,7 @@ async function startCollector(outDir: string) {
     ? `\n${await new Response(proc.stderr).text()}`
     : "";
   throw new Error(
-    `Failed to start the openlogs collector on http://${host}:${port}.${detail}`
+    `Failed to start the openlogs collector for ${outDir} (preferred port ${preferredPort}).${detail}`
   );
 }
 

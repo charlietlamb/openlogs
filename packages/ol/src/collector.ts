@@ -50,40 +50,37 @@ export async function runCollector(options: ServeOptions) {
     startedAt: new Date().toISOString(),
   } satisfies Omit<CollectorRecord, "port">;
 
-  const server = Bun.serve({
-    hostname: options.host,
-    port: options.port,
-    async fetch(request) {
-      const url = new URL(request.url);
-      if (request.method === "OPTIONS") {
-        return new Response(null, { headers: corsHeaders, status: 204 });
-      }
-      if (request.method === "GET" && url.pathname === "/health") {
-        return Response.json(
-          { ok: true, ...recordBase, port: server.port },
-          { headers: corsHeaders }
-        );
-      }
-      if (request.method !== "POST" || url.pathname !== "/ingest") {
-        return new Response("Not found", { status: 404 });
-      }
-
-      const payload = await request.json().catch(() => null);
-      let events: BrowserEvent[] = [];
-      if (Array.isArray((payload as BrowserBatch | null)?.events)) {
-        events = (payload as BrowserBatch).events ?? [];
-      } else if (Array.isArray(payload)) {
-        events = payload as BrowserEvent[];
-      }
-
-      await Promise.all(
-        events.map((event) =>
-          appendBrowserEvent(event, sources, options.outDir)
-        )
-      );
+  let server: ReturnType<typeof Bun.serve>;
+  const fetch = async (request: Request) => {
+    const url = new URL(request.url);
+    if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders, status: 204 });
-    },
-  });
+    }
+    if (request.method === "GET" && url.pathname === "/health") {
+      return Response.json(
+        { ok: true, ...recordBase, port: server.port },
+        { headers: corsHeaders }
+      );
+    }
+    if (request.method !== "POST" || url.pathname !== "/ingest") {
+      return new Response("Not found", { status: 404 });
+    }
+
+    const payload = await request.json().catch(() => null);
+    let events: BrowserEvent[] = [];
+    if (Array.isArray((payload as BrowserBatch | null)?.events)) {
+      events = (payload as BrowserBatch).events ?? [];
+    } else if (Array.isArray(payload)) {
+      events = payload as BrowserEvent[];
+    }
+
+    await Promise.all(
+      events.map((event) => appendBrowserEvent(event, sources, options.outDir))
+    );
+    return new Response(null, { headers: corsHeaders, status: 204 });
+  };
+
+  server = listenOnAvailablePort(options.host, options.port, fetch);
 
   const record = { ...recordBase, port: server.port } satisfies CollectorRecord;
   await Bun.write(
@@ -91,7 +88,14 @@ export async function runCollector(options: ServeOptions) {
     `${JSON.stringify(record, null, 2)}\n`
   );
 
+  let closing = false;
+  let parentWatch: ReturnType<typeof setInterval> | undefined;
   const cleanup = async () => {
+    if (closing) {
+      return;
+    }
+    closing = true;
+    clearInterval(parentWatch);
     server.stop(true);
     const current = await loadCollectorRecord(options.outDir);
     if (current?.pid === process.pid) {
@@ -105,7 +109,54 @@ export async function runCollector(options: ServeOptions) {
     });
   }
 
+  // Exit if the launching process dies, so collectors never linger and squat
+  // the port (which would block future runs, e.g. across git worktrees).
+  const parentPid = process.ppid;
+  parentWatch = setInterval(() => {
+    if (process.ppid !== parentPid || !isProcessAlive(parentPid)) {
+      cleanup().finally(() => process.exit(0));
+    }
+  }, 500);
+
   await new Promise(() => undefined);
+}
+
+function isProcessAlive(pid: number) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function listenOnAvailablePort(
+  host: string,
+  startPort: number,
+  fetch: (request: Request) => Response | Promise<Response>
+) {
+  const maxAttempts = 64;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      return Bun.serve({ fetch, hostname: host, port: startPort + attempt });
+    } catch (error) {
+      lastError = error;
+      if (!isAddressInUse(error)) {
+        throw error;
+      }
+    }
+  }
+  throw lastError;
+}
+
+function isAddressInUse(error: unknown) {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+  const code = "code" in error ? String(error.code) : "";
+  const message = error instanceof Error ? error.message : String(error);
+  return code === "EADDRINUSE" || /eaddrinuse|in use/i.test(message);
 }
 
 export async function loadCollectorRecord(outDir: string) {

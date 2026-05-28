@@ -243,6 +243,64 @@ test("cli starts a browser collector while the command runs", async () => {
   expect(await proc.exited).toBe(143);
 });
 
+test("concurrent collectors sharing a preferred port bind to distinct ports", async () => {
+  const sharedPort = getAvailablePort();
+  const outDirA = join(process.cwd(), ".tmp-openlogs-a");
+  const outDirB = join(process.cwd(), ".tmp-openlogs-b");
+
+  const spawnRun = (dir: string) =>
+    Bun.spawn(["bun", cliPath, "--out-dir", dir, "sh", "-lc", "sleep 5"], {
+      cwd: process.cwd(),
+      env: { ...Bun.env, OPENLOGS_COLLECTOR_PORT: String(sharedPort) },
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+  const loadRecord = (dir: string) =>
+    waitFor(
+      async () => {
+        try {
+          const record = await Bun.file(join(dir, "collector.json")).json();
+          if (typeof record?.port !== "number") {
+            return null;
+          }
+          const response = await fetch(`http://127.0.0.1:${record.port}/health`);
+          return response.ok ? await response.json() : null;
+        } catch {
+          return null;
+        }
+      },
+      (value) => value?.outDir === dir,
+      5000
+    );
+
+  const procA = spawnRun(outDirA);
+  const procB = spawnRun(outDirB);
+
+  try {
+    const [healthA, healthB] = await Promise.all([
+      loadRecord(outDirA),
+      loadRecord(outDirB),
+    ]);
+
+    expect(healthA.ok).toBe(true);
+    expect(healthB.ok).toBe(true);
+    expect(healthA.outDir).toBe(outDirA);
+    expect(healthB.outDir).toBe(outDirB);
+    expect(healthA.port).not.toBe(healthB.port);
+    expect([healthA.port, healthB.port]).toContain(sharedPort);
+  } finally {
+    procA.kill("SIGTERM");
+    procB.kill("SIGTERM");
+    await Promise.all([procA.exited, procB.exited]);
+    await Promise.all([
+      rm(outDirA, { force: true, recursive: true }),
+      rm(outDirB, { force: true, recursive: true }),
+    ]);
+  }
+});
+
 test("cli tail prints the latest text log", async () => {
   await mkdir(outDir, { recursive: true });
   await Bun.write(join(outDir, "latest.txt"), "one\ntwo\nthree\n");
