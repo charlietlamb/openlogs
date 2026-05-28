@@ -2,11 +2,17 @@
 
 import { MoonIcon, SunIcon, TerminalIcon } from "@phosphor-icons/react";
 import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 import { GITHUB_URL } from "@/lib/constants";
 import { GitHubIcon } from "./icons/github-icon";
 
 export function NavHeader() {
   const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <nav className="flex items-center gap-4 border-border border-b px-6 py-3">
@@ -40,7 +46,7 @@ export function NavHeader() {
           onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
           type="button"
         >
-          {resolvedTheme === "dark" ? (
+          {mounted && resolvedTheme === "dark" ? (
             <SunIcon className="size-4" weight="regular" />
           ) : (
             <MoonIcon className="size-4" weight="regular" />

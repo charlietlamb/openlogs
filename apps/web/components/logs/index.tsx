@@ -5,15 +5,18 @@ import { cn } from "@/lib/cn";
 import { buildLogs } from "./log-data";
 import { TerminalLayer } from "./terminal-layer";
 
+const INITIAL_NOW = Date.UTC(2026, 0, 1, 12, 0, 0);
+
 interface LogsPaneProps {
   className?: string;
 }
 
 export function LogsPane({ className }: LogsPaneProps) {
   const [logs] = useState(() => buildLogs());
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(INITIAL_NOW);
 
   useEffect(() => {
+    setNow(Date.now());
     const interval = window.setInterval(() => setNow(Date.now()), 250);
     return () => window.clearInterval(interval);
   }, []);
